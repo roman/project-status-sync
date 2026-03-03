@@ -36,6 +36,8 @@
             hp.directory
             hp.filepath
             hp.optparse-applicative
+            hp.tasty
+            hp.tasty-hunit
             hp.text
             hp.time
           ];

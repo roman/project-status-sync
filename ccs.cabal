@@ -1,0 +1,59 @@
+cabal-version: 2.4
+name:          ccs
+version:       0.1.0.0
+synopsis:      Claude Conversation Sync - cross-session context awareness
+build-type:    Simple
+
+common warnings
+  ghc-options: -Wall -Wcompat
+
+library
+  import:           warnings
+  hs-source-dirs:   src
+  default-language: GHC2021
+  default-extensions:
+    DerivingStrategies
+    LambdaCase
+    OverloadedStrings
+  exposed-modules:
+    CCS
+  build-depends:
+      base >= 4.17 && < 5
+    , aeson
+    , bytestring
+    , directory
+    , filepath
+    , optparse-applicative
+    , text
+    , time
+
+executable ccs
+  import:           warnings
+  main-is:          Main.hs
+  hs-source-dirs:   app
+  default-language: GHC2021
+  default-extensions:
+    LambdaCase
+    OverloadedStrings
+  ghc-options:      -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >= 4.17 && < 5
+    , ccs
+    , optparse-applicative
+    , text
+
+test-suite ccs-test
+  import:           warnings
+  type:             exitcode-stdio-1.0
+  main-is:          Main.hs
+  hs-source-dirs:   test
+  default-language: GHC2021
+  default-extensions:
+    LambdaCase
+    OverloadedStrings
+  ghc-options:      -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >= 4.17 && < 5
+    , ccs
+    , tasty
+    , tasty-hunit
