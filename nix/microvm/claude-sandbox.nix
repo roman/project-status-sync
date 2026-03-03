@@ -34,17 +34,12 @@
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
   nix.settings.trusted-users = [ "root" "claude" ];
 
-  # Ensure nix var directories exist with correct permissions
-  systemd.tmpfiles.rules = [
-    "d /nix/var 0755 root root -"
-    "d /nix/var/nix 0755 root root -"
-    "d /nix/var/nix/db 0755 root root -"
-    "d /nix/var/nix/gcroots 0755 root root -"
-    "d /nix/var/nix/profiles 0755 root root -"
-    "d /nix/var/nix/temproots 0755 root root -"
-    "d /nix/var/nix/userpool 0755 root root -"
-    "d /nix/var/nix/daemon-socket 0755 root root -"
-  ];
+  # Writable tmpfs for nix var (database, temproots, etc.)
+  fileSystems."/nix/var" = {
+    device = "none";
+    fsType = "tmpfs";
+    options = [ "mode=0755" "size=1G" ];
+  };
 
   # Auto-login as claude user
   services.getty.autologinUser = "claude";
