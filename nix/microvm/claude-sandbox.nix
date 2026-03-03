@@ -55,6 +55,13 @@
   # Auto-login as claude user
   services.getty.autologinUser = "claude";
 
+  # Start in /project directory
+  environment.interactiveShellInit = ''
+    if [[ -d /project ]]; then
+      cd /project
+    fi
+  '';
+
   # Login message with instructions
   services.getty.helpLine = ''
     Claude Sandbox VM
