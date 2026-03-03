@@ -33,6 +33,9 @@
   # Enable flakes and nix-command
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
+  # Auto-login as claude user
+  services.getty.autologinUser = "claude";
+
   # Login message with instructions
   services.getty.helpLine = ''
     Claude Sandbox VM
