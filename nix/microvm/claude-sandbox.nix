@@ -51,6 +51,7 @@
     "d /nix/var/nix/db 0755 root nixbld -"
     "d /nix/var/nix/gcroots 0755 root nixbld -"
     "d /nix/var/nix/profiles 0755 root nixbld -"
+    "d /nix/var/nix/profiles/per-user 1777 root root -"
     "d /nix/var/nix/temproots 0755 root nixbld -"
     "d /nix/var/nix/userpool 0755 root nixbld -"
     "d /nix/var/nix/daemon-socket 0755 root nixbld -"
@@ -90,6 +91,15 @@
         mountPoint = "/nix/.ro-store";
       }
     ];
+
+    # Writable overlay for nix store (required for nix commands to work)
+    writableStoreOverlay = "/nix/.rw-store";
+
+    volumes = [{
+      image = "nix-store-overlay.img";
+      mountPoint = "/nix/.rw-store";
+      size = 2048;  # 2GB
+    }];
 
     # Dynamic shares passed via MICROVM_EXTRA_ARGS by ralph-loop-sandboxed.sh
     # Format: -virtfs local,path=/path,mount_tag=project,security_model=mapped-xattr
