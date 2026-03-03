@@ -27,7 +27,7 @@
 | 0 | Spike: validate extraction approach | PARTIAL | — |
 | 1 | Capture: hooks + signals | PENDING | — |
 | 2a | Tooling: pre-filter, record-event, aggregation | PENDING | Infra, Phase 1 (signal format) |
-| 2b | Prompts: extraction, synthesis, plan-diff | PENDING | Infra |
+| 2b | Prompts: extraction, synthesis, plan-diff | PARTIAL | Infra |
 | 2c | Integration: wire everything together | PENDING | 1, 2a, 2b |
 | 3 | Status synthesis: generate STATUS.md | PENDING | 2c |
 | 4 | Retrieval: context injection at session start | PENDING | 3 |
@@ -350,6 +350,7 @@ until we're confident the extraction approach is sound.
 
 - [ ] Extraction prompt refined based on Phase 0 learnings
 - [ ] Synthesis prompt produces useful STATUS.md
+- [ ] Handoff generation prompt creates useful session summaries
 - [ ] Plan diff prompt identifies semantic changes (not formatting)
 
 ### Chunks
@@ -368,7 +369,21 @@ until we're confident the extraction approach is sound.
 - Output: STATUS.md in 4-question format
 - Test with sample events
 
-#### 2b.3: Plan diff prompt
+#### 2b.3: Handoff generation prompt
+
+- Create `prompts/handoff-generation.md`
+- Input: this session's events
+- Output: handoff markdown + topic slug for filename
+- Target 50-150 words
+
+#### 2b.4: Progress entry prompt
+
+- Create `prompts/progress-entry.md`
+- Input: session events
+- Output: single-line progress.log entry
+- Format: `{date} {time} [{session}] — {summary}`
+
+#### 2b.5: Plan diff prompt
 
 - Create `prompts/plan-diff.md`
 - Input: plan before/after
@@ -379,12 +394,23 @@ until we're confident the extraction approach is sound.
 
 - [x] Extraction prompt exists (needs refinement in 2b.1)
 - [ ] 2b.1: Extraction prompt refinement
-- [ ] 2b.2: Synthesis prompt
-- [ ] 2b.3: Plan diff prompt
+- [x] 2b.2: Synthesis prompt (`prompts/status-synthesis.md`)
+- [x] 2b.3: Handoff generation prompt (`prompts/handoff-generation.md`)
+- [x] 2b.4: Progress entry prompt (`prompts/progress-entry.md`)
+- [ ] 2b.5: Plan diff prompt
 
 ### Handoff Notes
 
-*(To be filled)*
+#### 2026-03-03 — Notes repo prompts created
+
+**Completed**:
+- Created `prompts/status-synthesis.md` — synthesizes STATUS.md from EVENTS.jsonl
+- Created `prompts/handoff-generation.md` — creates session handoff from events
+- Created `prompts/progress-entry.md` — generates single-line progress.log entry
+
+**Architecture**: Processing order is extraction → handoff → progress → status (status last so it can link to the new handoff via Obsidian wikilinks).
+
+**Remaining**: Plan diff prompt (2b.5), extraction prompt refinement (2b.1)
 
 ---
 
@@ -577,7 +603,9 @@ until we're confident the extraction approach is sound.
 | 2 | 2026-03-02 | Research | Ralph loop analysis, microvm sandboxing research |
 | 3 | 2026-03-02/03 | Infra | flake.nix, Haskell skeleton, beads, MicroVM sandbox |
 | 4 | 2026-03-03 | Tooling | Session ID tracking via devenv module |
-| 5 | — | Phase 1 | *(next session)* |
+| 5 | 2026-03-03 | Research | Notes repo protocol design |
+| 6 | 2026-03-03 | Phase 2b | Created handoff, progress, status synthesis prompts |
+| 7 | — | — | *(next session)* |
 
 ---
 
