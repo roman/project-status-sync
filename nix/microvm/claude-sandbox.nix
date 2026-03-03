@@ -38,8 +38,10 @@
 
   # Enable nix daemon and flakes
   nix.enable = true;
-  nix.settings.experimental-features = [ "nix-command" "flakes" ];
-  nix.settings.trusted-users = [ "root" "claude" ];
+  nix.settings = {
+    experimental-features = [ "nix-command" "flakes" ];
+    trusted-users = [ "root" "claude" ];
+  };
 
   # Writable tmpfs for nix var (database, temproots, etc.)
   fileSystems."/nix/var" = {
