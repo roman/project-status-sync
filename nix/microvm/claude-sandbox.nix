@@ -41,6 +41,17 @@
     options = [ "mode=0755" "size=1G" ];
   };
 
+  # Create nix directories after tmpfs is mounted
+  systemd.tmpfiles.rules = [
+    "d /nix/var/nix 0755 root nixbld -"
+    "d /nix/var/nix/db 0755 root nixbld -"
+    "d /nix/var/nix/gcroots 0755 root nixbld -"
+    "d /nix/var/nix/profiles 0755 root nixbld -"
+    "d /nix/var/nix/temproots 0755 root nixbld -"
+    "d /nix/var/nix/userpool 0755 root nixbld -"
+    "d /nix/var/nix/daemon-socket 0755 root nixbld -"
+  ];
+
   # Auto-login as claude user
   services.getty.autologinUser = "claude";
 
