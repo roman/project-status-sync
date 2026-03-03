@@ -4,3 +4,4 @@
 2026-03-02 15:30 — Research: Analyzed iidy-hs ralph loop, designed microvm sandboxing architecture
 2026-03-02 16:45 — Research: Created WORKPLAN.md following iidy-hs pattern
 2026-03-02 17:15 — Refactor: Removed progress.md, consolidated into WORKPLAN.md + notes/handoffs/
+2026-03-02 23:55 — Infra.4: MicroVM sandbox setup (flake, VM config, ralph-loop script, RALPH.md)

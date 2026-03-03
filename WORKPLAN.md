@@ -1,7 +1,7 @@
 # Claude Conversation Sync Workplan
 
 **Target**: Cross-session context awareness for Claude Code via event extraction and status synthesis.
-**Status**: Infrastructure setup in progress. Phase 0 (Spike) partially validated.
+**Status**: Infrastructure setup in progress. Infra.1-3 complete, Infra.4 (MicroVM) in progress.
 
 ## Critical Rules
 
@@ -22,7 +22,8 @@
 
 | Phase | Description | Status | Blocked By |
 |-------|-------------|--------|------------|
-| Infra | flake.nix, Haskell skeleton, beads | **IN PROGRESS** | — |
+| Infra.1-3 | flake.nix, Haskell skeleton, beads | **DONE** | — |
+| Infra.4 | MicroVM sandboxing for ralph loops | **IN PROGRESS** | Infra.1-3 |
 | 0 | Spike: validate extraction approach | PARTIAL | — |
 | 1 | Capture: hooks + signals | PENDING | Infra |
 | 2a | Tooling: pre-filter, record-event, aggregation | PENDING | Infra, Phase 1 (signal format) |
@@ -71,13 +72,87 @@
 
 ### Progress
 
-- [ ] Infra.1: flake.nix with nixDir
-- [ ] Infra.2: Haskell skeleton
-- [ ] Infra.3: beads initialization
+- [x] Infra.1: flake.nix with nixDir
+- [x] Infra.2: Haskell skeleton
+- [x] Infra.3: beads initialization
 
 ### Handoff Notes
 
-*(To be filled after each session)*
+#### 2026-03-02 — Infra.1-3 complete
+
+**Completed**:
+- flake.nix with nixDir, microvm.nix input
+- Haskell skeleton (cabal, src/CCS.hs, app/Main.hs, test/Main.hs)
+- Dev shell with GHC 9.10.3, cabal, HLS
+- beads initialized at beads/.beads/
+
+**Verified**:
+- `nix develop` ✓
+- `cabal build` ✓
+- `cabal test` ✓ (1 test passed)
+- `nix build .#ccs` ✓
+
+---
+
+## Phase Infra.4: MicroVM Sandboxing
+
+**Goal**: Enable safe ralph loops by running Claude in ephemeral NixOS VMs.
+
+### Gates
+
+- [ ] VM boots successfully: `nix run .#claude-sandbox`
+- [ ] Cannot access host `~/.ssh` from inside VM
+- [ ] Can read/write `/project` (shared project directory)
+- [ ] API calls succeed (anthropic credentials work)
+- [ ] ralph-loop-sandboxed.sh runs one session cycle
+
+### Chunks
+
+#### Infra.4.1: Add microvm.nix to flake
+
+- Add microvm.nix input ✓
+- Import nixosModules.microvm ✓
+- Export claude-sandbox package ✓
+
+#### Infra.4.2: Define claude-sandbox VM
+
+- Create `nix/microvm/claude-sandbox.nix` ✓
+- Configure 4 vCPU, 4GB RAM ✓
+- 9p shares for nix store, gitconfig, anthropic ✓
+- User networking ✓
+- Dynamic project share via extraArgsScript ✓
+
+#### Infra.4.3: Create ralph-loop-sandboxed.sh
+
+- Create `scripts/ralph-loop-sandboxed.sh` ✓
+- Prompt writing to .ralph-prompt ✓
+- Dynamic 9p share arguments ✓
+- Exit code handling ✓
+- Stop file support ✓
+
+#### Infra.4.4: Supporting files
+
+- Create `RALPH.md` ✓
+- Create `.msgs/` directory ✓
+
+#### Infra.4.5: Verification
+
+- [ ] Test VM boot
+- [ ] Test isolation (cannot access ~/.ssh)
+- [ ] Test project share (can read/write /project)
+- [ ] Test API key (claude can authenticate)
+
+### Progress
+
+- [x] Infra.4.1: Add microvm.nix to flake
+- [x] Infra.4.2: Define claude-sandbox VM
+- [x] Infra.4.3: Create ralph-loop-sandboxed.sh
+- [x] Infra.4.4: Supporting files
+- [ ] Infra.4.5: Verification
+
+### Handoff Notes
+
+*(To be filled after verification)*
 
 ---
 
