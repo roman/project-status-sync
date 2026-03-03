@@ -5,3 +5,4 @@
 2026-03-02 16:45 — Research: Created WORKPLAN.md following iidy-hs pattern
 2026-03-02 17:15 — Refactor: Removed progress.md, consolidated into WORKPLAN.md + notes/handoffs/
 2026-03-02 23:55 — Infra.4: MicroVM sandbox setup (flake, VM config, ralph-loop script, RALPH.md)
+2026-03-03 00:20 — Infra.4: VM functional for ralph loop, deferred nix store caching issue
