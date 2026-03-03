@@ -32,6 +32,7 @@
 
   # Enable flakes and nix-command
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
+  nix.settings.trusted-users = [ "root" "claude" ];
 
   # Auto-login as claude user
   services.getty.autologinUser = "claude";
