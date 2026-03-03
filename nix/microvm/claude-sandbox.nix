@@ -30,6 +30,9 @@
     HOME = "/home/claude";
   };
 
+  # Enable flakes and nix-command
+  nix.settings.experimental-features = [ "nix-command" "flakes" ];
+
   # Login message with instructions
   services.getty.helpLine = ''
     Claude Sandbox VM
