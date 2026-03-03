@@ -30,7 +30,8 @@
     HOME = "/home/claude";
   };
 
-  # Enable flakes and nix-command
+  # Enable nix daemon and flakes
+  nix.enable = true;
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
   nix.settings.trusted-users = [ "root" "claude" ];
 
@@ -40,6 +41,9 @@
     fsType = "tmpfs";
     options = [ "mode=0755" "size=1G" ];
   };
+
+  # Ensure nix-daemon is running (microvm.optimize may mask it)
+  systemd.services.nix-daemon.wantedBy = [ "multi-user.target" ];
 
   # Create nix directories after tmpfs is mounted
   systemd.tmpfiles.rules = [
