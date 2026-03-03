@@ -576,4 +576,38 @@ until we're confident the extraction approach is sound.
 | 1 | 2026-03-01 | Bootstrap | Created repo, docs, pre-filter script, extraction prompt |
 | 2 | 2026-03-02 | Research | Ralph loop analysis, microvm sandboxing research |
 | 3 | 2026-03-02/03 | Infra | flake.nix, Haskell skeleton, beads, MicroVM sandbox |
-| 4 | — | Phase 1 | *(next session)* |
+| 4 | 2026-03-03 | Tooling | Session ID tracking via devenv module |
+| 5 | — | Phase 1 | *(next session)* |
+
+---
+
+## Supplementary: Session Tracking
+
+**Goal**: Enable tracing progress.log entries back to conversation transcripts.
+
+### Implementation
+
+- Devenv module at `nix/modules/devenv/session-tracking.nix`
+- Exported as `devenvModules.session-tracking`
+- `UserPromptSubmit` hook writes session ID to `.current-session-id`
+- Agents include session prefix in progress.log entries
+- Format: `YYYY-MM-DD HH:MM [<8-char-prefix>] — Phase X.Y: description`
+
+### Handoff Notes
+
+#### 2026-03-03 — Session tracking module
+
+**Completed**:
+- Created `nix/modules/devenv/session-tracking.nix` (devenv module)
+- Exported as `devenvModules.session-tracking` via nixDir
+- Updated `CLAUDE.md` progress logging format to include session prefix
+- Added `.current-session-id` to `.gitignore`
+
+**Usage**:
+```nix
+# In devenv.nix or via flake imports:
+imports = [ inputs.ccs.devenvModules.session-tracking ];
+```
+
+**Note**: Project uses plain `mkShell` devShell. To use this module internally,
+either switch to devenv or manually configure the hook in `.claude/settings.json`.

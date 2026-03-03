@@ -65,11 +65,19 @@ Before wrapping up, verify ALL of these:
 After completing each chunk, append a timestamped line to `progress.log`:
 
 ```
-YYYY-MM-DD HH:MM — Phase X.Y: brief description of what was done
+YYYY-MM-DD HH:MM [<session-prefix>] — Phase X.Y: brief description
+```
+
+Where `<session-prefix>` is the first 8 characters of the session ID from `.current-session-id`.
+
+To get the session prefix:
+```bash
+head -c8 .current-session-id 2>/dev/null || echo "unknown"
 ```
 
 - APPEND only — never rewrite the file
 - Single-line entries for `tail -f` monitoring
+- Session ID enables linking log entries to conversation transcripts
 - Also log gate pass/fail results
 
 ## Documentation

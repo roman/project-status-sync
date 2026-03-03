@@ -6,3 +6,4 @@ result-*
 *.o
 *.cabal.bak
 nix-store-overlay.img
+.current-session-id

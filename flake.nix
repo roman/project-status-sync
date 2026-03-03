@@ -36,7 +36,7 @@
       };
 
       perSystem =
-        { pkgs, system, ... }:
+        { pkgs, ... }:
         let
           haskellDeps = hp: [
             hp.aeson
