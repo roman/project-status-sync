@@ -26,6 +26,12 @@
     curl
   ];
 
+  # Trust /project directory for git (ownership differs due to 9p mount)
+  environment.etc."gitconfig".text = ''
+    [safe]
+      directory = /project
+  '';
+
   environment.variables = {
     HOME = "/home/claude";
   };
