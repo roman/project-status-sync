@@ -13,6 +13,9 @@
 
   security.sudo.wheelNeedsPassword = false;
 
+  # Enable poweroff/reboot
+  services.logind.settings.Login.HandlePowerKey = "poweroff";
+
   environment.systemPackages = with pkgs; [
     git
     coreutils
@@ -26,6 +29,17 @@
   environment.variables = {
     HOME = "/home/claude";
   };
+
+  # Login message with instructions
+  services.getty.helpLine = ''
+    Claude Sandbox VM
+
+    Mounts:
+      /project     - shared project directory (if passed)
+      /nix/.ro-store - host nix store (read-only)
+
+    To exit: poweroff (or Ctrl-A X in QEMU)
+  '';
 
   microvm = {
     hypervisor = "qemu";
@@ -41,9 +55,9 @@
       }
     ];
 
+    # Dynamic shares passed via MICROVM_EXTRA_ARGS by ralph-loop-sandboxed.sh
+    # Format: -virtfs local,path=/path,mount_tag=project,security_model=mapped-xattr
     extraArgsScript = ''
-      # Dynamic shares added at runtime by ralph-loop-sandboxed.sh
-      # via MICROVM_EXTRA_ARGS environment variable
       echo "''${MICROVM_EXTRA_ARGS:-}"
     '';
 
@@ -58,22 +72,24 @@
     socket = "claude-sandbox.sock";
   };
 
+  # Optional mounts - only mount if the 9p tag exists
+  # These are created by ralph-loop-sandboxed.sh via MICROVM_EXTRA_ARGS
   fileSystems."/project" = {
     device = "project";
     fsType = "9p";
-    options = [ "trans=virtio" "version=9p2000.L" "msize=104857600" ];
+    options = [ "trans=virtio" "version=9p2000.L" "msize=104857600" "nofail" "x-systemd.automount" ];
   };
 
   fileSystems."/home/claude/.gitconfig" = {
     device = "gitconfig";
     fsType = "9p";
-    options = [ "trans=virtio" "version=9p2000.L" "ro" ];
+    options = [ "trans=virtio" "version=9p2000.L" "ro" "nofail" "x-systemd.automount" ];
   };
 
   fileSystems."/run/secrets/anthropic" = {
     device = "anthropic";
     fsType = "9p";
-    options = [ "trans=virtio" "version=9p2000.L" "ro" ];
+    options = [ "trans=virtio" "version=9p2000.L" "ro" "nofail" "x-systemd.automount" ];
   };
 
   system.stateVersion = "25.11";
