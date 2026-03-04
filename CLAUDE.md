@@ -18,7 +18,13 @@ For deeper context on specific tasks, check [`notes/handoffs/`](notes/handoffs/)
 
 ## Documentation Before Every Commit (NON-NEGOTIABLE)
 
-**You MUST update documentation BEFORE making any commit.** Every commit includes:
+**TRIGGER**: When user says "commit", "please commit", or "commit the changes":
+1. STOP — do not run `git commit` yet
+2. First update: WORKPLAN.md, progress.log, handoff doc
+3. Then stage ALL files together
+4. Then commit
+
+**Every commit includes:**
 
 1. **Code changes** — the actual implementation
 2. **WORKPLAN.md** — update progress checkboxes, phase status, handoff notes
