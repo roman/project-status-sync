@@ -27,12 +27,45 @@
 | 0 | Spike: validate extraction approach | PARTIAL | — |
 | 1 | Capture: hooks + signals | PENDING | — |
 | 2a | Tooling: pre-filter, record-event, aggregation | PENDING | Infra, Phase 1 (signal format) |
-| 2b | Prompts: extraction, synthesis, plan-diff | PARTIAL | Infra |
+| 2b | Prompts: extraction, handoff, progress, synthesis | PARTIAL | Infra |
 | 2c | Integration: wire everything together | PENDING | 1, 2a, 2b |
-| 3 | Status synthesis: generate STATUS.md | PENDING | 2c |
-| 4 | Retrieval: context injection at session start | PENDING | 3 |
-| 5 | Work-specific: skill gap tagging (optional) | DEFERRED | 4 |
-| 6 | Archival: manage EVENTS.jsonl growth | DEFERRED | 4 |
+| 3 | Status & Handoffs: generate outputs | PENDING | 2c |
+| 4 | Retrieval: context injection (optional) | DEFERRED | 3 |
+| 5 | Archival: manage EVENTS.jsonl growth | DEFERRED | 4 |
+
+## Phase Diagram
+
+```
+Phase 0: Spike ─────────────────────────────────────────────────┐
+    │                                                           │
+    ▼                                                           │
+┌───────────────────────────────────────────────────────┐       │
+│              Parallel Workstreams                      │       │
+├─────────────────┬─────────────────┬───────────────────┤       │
+│   Capture       │   Tooling       │   Prompts         │       │
+│   (Phase 1)     │   (Phase 2a)    │   (Phase 2b)      │       │
+├─────────────────┼─────────────────┼───────────────────┤       │
+│ SessionEnd hook │ Pre-filter fn   │ Extraction prompt │       │
+│ Project ID logic│ record-event CLI│ Handoff prompt    │       │
+│ Signal format   │ Aggregation job │ Progress prompt   │       │
+│                 │   skeleton      │ Synthesis prompt  │       │
+└────────┬────────┴────────┬────────┴─────────┬─────────┘       │
+         │                 │                  │                 │
+         └────────────────►├◄─────────────────┘                 │
+                           │                                    │
+                    Integration (Phase 2c)                      │
+                           │                                    │
+                           ▼                                    │
+                    Phase 3: Status & Handoffs                  │
+                           │                                    │
+                           ▼                                    │
+                    Phase 4: Retrieval (deferred)               │
+                           │                                    │
+                           ▼                                    │
+                    Phase 5: Archival (deferred)                │
+                                                                │
+◄───────────────────── Validation gates ────────────────────────┘
+```
 
 ---
 
@@ -235,8 +268,7 @@ until we're confident the extraction approach is sound.
 
 ### Gates
 
-- [ ] SessionEnd hook copies JSONL + writes `.available` signal
-- [ ] PreCompact hook copies pre-compaction snapshot
+- [ ] SessionEnd hook writes `.available` signal with transcript path and cwd
 - [ ] Project identification works for git repos, monorepos, non-git dirs
 - [ ] 5 real sessions captured successfully
 
@@ -244,7 +276,7 @@ until we're confident the extraction approach is sound.
 
 #### 1.1: Signal format definition
 
-- Define `.available` file JSON schema
+- Define `.available` file JSON schema: `{"transcript_path": "...", "cwd": "..."}`
 - Document in `docs/design.md` (already done)
 - Create example signal file
 
@@ -252,25 +284,14 @@ until we're confident the extraction approach is sound.
 
 - Implement `CCS.Project` module
 - Git remote + subpath → ProjectKey
-- `.claude-project` override
-- Directory fallback
-- Work vs personal classification
+- Directory fallback for non-git projects
 
 #### 1.3: SessionEnd hook
 
 - Create hook script (reads JSON from stdin)
-- Copy session JSONL to output directory
-- Copy sub-agent JSONLs
-- Copy modified plan files
-- Write `.available` signal
+- Write `.available` signal file
 
-#### 1.4: PreCompact hook
-
-- Create hook script
-- Copy current JSONL as `{id}-precompact-{timestamp}.jsonl`
-- No signal file (just preservation)
-
-#### 1.5: Hook registration
+#### 1.4: Hook registration
 
 - Create home-manager module for hooks
 - Wire hooks into `~/.claude/settings.json`
@@ -281,8 +302,7 @@ until we're confident the extraction approach is sound.
 - [ ] 1.1: Signal format definition
 - [ ] 1.2: Project identification module
 - [ ] 1.3: SessionEnd hook
-- [ ] 1.4: PreCompact hook
-- [ ] 1.5: Hook registration
+- [ ] 1.4: Hook registration
 
 ### Handoff Notes
 
@@ -351,7 +371,7 @@ until we're confident the extraction approach is sound.
 - [ ] Extraction prompt refined based on Phase 0 learnings
 - [ ] Synthesis prompt produces useful STATUS.md
 - [ ] Handoff generation prompt creates useful session summaries
-- [ ] Plan diff prompt identifies semantic changes (not formatting)
+- [ ] Progress entry prompt produces well-formatted log entries
 
 ### Chunks
 
@@ -365,8 +385,8 @@ until we're confident the extraction approach is sound.
 #### 2b.2: Synthesis prompt
 
 - Create `prompts/status-synthesis.md`
-- Input: EVENTS.jsonl window
-- Output: STATUS.md in 4-question format
+- Input: EVENTS.jsonl + list of recent handoff files
+- Output: STATUS.md in 4-question format with handoff wikilinks
 - Test with sample events
 
 #### 2b.3: Handoff generation prompt
@@ -383,13 +403,6 @@ until we're confident the extraction approach is sound.
 - Output: single-line progress.log entry
 - Format: `{date} {time} [{session}] — {summary}`
 
-#### 2b.5: Plan diff prompt
-
-- Create `prompts/plan-diff.md`
-- Input: plan before/after
-- Output: semantic changes as `plan-created`/`plan-diff` events
-- Must filter formatting-only changes
-
 ### Progress
 
 - [x] Extraction prompt exists (needs refinement in 2b.1)
@@ -397,7 +410,6 @@ until we're confident the extraction approach is sound.
 - [x] 2b.2: Synthesis prompt (`prompts/status-synthesis.md`)
 - [x] 2b.3: Handoff generation prompt (`prompts/handoff-generation.md`)
 - [x] 2b.4: Progress entry prompt (`prompts/progress-entry.md`)
-- [ ] 2b.5: Plan diff prompt
 
 ### Handoff Notes
 
@@ -410,7 +422,7 @@ until we're confident the extraction approach is sound.
 
 **Architecture**: Processing order is extraction → handoff → progress → status (status last so it can link to the new handoff via Obsidian wikilinks).
 
-**Remaining**: Plan diff prompt (2b.5), extraction prompt refinement (2b.1)
+**Remaining**: Extraction prompt refinement (2b.1)
 
 ---
 
@@ -430,20 +442,13 @@ until we're confident the extraction approach is sound.
 
 - Wire quiet period trigger to processing
 - For each pending signal:
-  - Read session JSONL
+  - Read session JSONL from `transcript_path`
   - Run pre-filter
   - Invoke `claude -p` with extraction prompt
   - Collect events from record-event output
   - Append to EVENTS.jsonl
 
-#### 2c.2: Plan processing
-
-- Detect plan files in session
-- Diff against previous version
-- Run plan diff prompt
-- Append plan events to EVENTS.jsonl
-
-#### 2c.3: End-to-end testing
+#### 2c.2: End-to-end testing
 
 - Run real session
 - Verify hook fires
@@ -453,8 +458,7 @@ until we're confident the extraction approach is sound.
 ### Progress
 
 - [ ] 2c.1: Aggregation job completion
-- [ ] 2c.2: Plan processing
-- [ ] 2c.3: End-to-end testing
+- [ ] 2c.2: End-to-end testing
 
 ### Handoff Notes
 
@@ -462,41 +466,52 @@ until we're confident the extraction approach is sound.
 
 ---
 
-## Phase 3: Status Synthesis
+## Phase 3: Status & Handoffs
 
-**Goal**: Generate useful STATUS.md from accumulated events.
+**Goal**: Generate useful STATUS.md, handoffs, and progress.log from accumulated events.
 
 ### Gates
 
-- [ ] STATUS.md generated at end of aggregation run
-- [ ] 4-question format readable and useful
+- [ ] STATUS.md generated at end of aggregation run with handoff wikilinks
+- [ ] Handoff files generated per session in `handoffs/` directory
+- [ ] progress.log accumulates entries correctly
 - [ ] Reading STATUS.md cold provides project understanding
 
 ### Chunks
 
-#### 3.1: Synthesis integration
+#### 3.1: Processing flow integration
 
-- Wire synthesis prompt to aggregation job
-- Run after all pending sessions processed
-- Input: recent EVENTS.jsonl entries
+Wire all prompts to aggregation job in order:
+1. Run extraction → append to EVENTS.jsonl
+2. Run handoff generation → write `handoffs/{date}-{session}-{topic}.md`
+3. Append progress.log entry
+4. Run synthesis → write STATUS.md (last, so it can link to new handoff)
 
-#### 3.2: STATUS.md output
+#### 3.2: Handoff output
+
+- Write to `{project}/handoffs/{date}-{sessionID}-{topic}.md`
+- Topic derived by LLM from session events
+- Target 50-150 words
+
+#### 3.3: STATUS.md output
 
 - Write to `{project}/STATUS.md`
 - Overwrite on each run (not append)
-- Include timestamp of generation
+- Include Recent Handoffs section with Obsidian wikilinks
 
-#### 3.3: Quality validation
+#### 3.4: Quality validation
 
-- Generate STATUS.md for this project
-- Read it cold after 1 week
+- Generate outputs for this project
+- Read STATUS.md cold after 1 week
 - Does it help understand where we are?
+- Do handoff links work in Obsidian?
 
 ### Progress
 
-- [ ] 3.1: Synthesis integration
-- [ ] 3.2: STATUS.md output
-- [ ] 3.3: Quality validation
+- [ ] 3.1: Processing flow integration
+- [ ] 3.2: Handoff output
+- [ ] 3.3: STATUS.md output
+- [ ] 3.4: Quality validation
 
 ### Handoff Notes
 
@@ -504,66 +519,44 @@ until we're confident the extraction approach is sound.
 
 ---
 
-## Phase 4: Retrieval
+## Phase 4: Retrieval (Deferred)
 
 **Goal**: Surface context at session start.
 
+**MVP approach**: Working agent reads STATUS.md and handoffs via CLAUDE.md instructions.
+No automatic hooks or slash commands needed for MVP.
+
 ### Gates
 
-- [ ] UserPromptSubmit hook detects STATUS.md
-- [ ] User offered choice: load all, status only, skip
-- [ ] `/context` command works with filters
+- [ ] CLAUDE.md template documented for context injection
+- [ ] (Optional) UserPromptSubmit hook detects STATUS.md
+- [ ] (Optional) `/context` command works with filters
 
 ### Chunks
 
-#### 4.1: UserPromptSubmit hook
+#### 4.1: CLAUDE.md template
+
+- Document pattern for referencing STATUS.md and handoffs
+- Example snippet for project CLAUDE.md files
+
+#### 4.2: UserPromptSubmit hook (optional)
 
 - Detect project from CWD
 - Check if STATUS.md exists
 - Show offer with metadata (last updated, event count)
 - User confirms before loading
 
-#### 4.2: /context slash command
+#### 4.3: /context slash command (optional)
 
 - Create skill for `/context`
 - Default: STATUS.md + last 3-5 sessions
 - Flags: `--last N`, `--since DATE`, `--tag TAG`, `--deep`
 
-#### 4.3: Retrieval testing
-
-- Start fresh session in project with STATUS.md
-- Verify offer appears
-- Verify loaded context is helpful
-
 ### Progress
 
-- [ ] 4.1: UserPromptSubmit hook
-- [ ] 4.2: /context slash command
-- [ ] 4.3: Retrieval testing
-
-### Handoff Notes
-
-*(To be filled)*
-
----
-
-## Phase 5: Work-specific (Deferred)
-
-**Goal**: Add work-context features for professional growth tracking.
-
-### Gates
-
-- [ ] Skill gap tagging works for work projects
-- [ ] Growth Signals section appears in STATUS.md
-- [ ] Integration with self-review-signal skill
-
-### Chunks
-
-*(To be defined when phase is activated)*
-
-### Progress
-
-*(Deferred)*
+- [ ] 4.1: CLAUDE.md template
+- [ ] 4.2: UserPromptSubmit hook (optional)
+- [ ] 4.3: /context slash command (optional)
 
 ### Handoff Notes
 
@@ -571,7 +564,7 @@ until we're confident the extraction approach is sound.
 
 ---
 
-## Phase 6: Archival (Deferred)
+## Phase 5: Archival (Deferred)
 
 **Goal**: Manage EVENTS.jsonl growth over time.
 
@@ -605,7 +598,8 @@ until we're confident the extraction approach is sound.
 | 4 | 2026-03-03 | Tooling | Session ID tracking via devenv module |
 | 5 | 2026-03-03 | Research | Notes repo protocol design |
 | 6 | 2026-03-03 | Phase 2b | Created handoff, progress, status synthesis prompts |
-| 7 | — | — | *(next session)* |
+| 7 | 2026-03-03 | Docs | Simplified scope, updated design.md, consolidated to WORKPLAN.md |
+| 8 | — | — | *(next session)* |
 
 ---
 
