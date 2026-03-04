@@ -656,7 +656,8 @@ No automatic hooks or slash commands needed for MVP.
 | 10 | 2026-03-03 | Research | RALPH sandbox: bubblewrap-claude + headless mode, blocked by tool exec |
 | 11 | 2026-03-03 | Infra | RALPH sandbox unblocked, proxy cleanup fix, flake integration |
 | 12 | 2026-03-04 | Phase 1 | Signal format definition (CCS.Signal module, tests, example) |
-| 13 | — | — | *(next session)* |
+| 13 | 2026-03-03 | Infra | ralph-test.sh script, first successful sandbox RALPH run |
+| 14 | — | — | *(next session)* |
 
 ---
 

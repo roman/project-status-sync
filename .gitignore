@@ -9,3 +9,6 @@ nix-store-overlay.img
 .current-session-id
 .devenv/
 .claude/
+.ralph-prompt
+.ralph-stop
+.msgs/
