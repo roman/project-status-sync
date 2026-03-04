@@ -1,13 +1,56 @@
 # Claude Conversation Sync
 
-## Before You Start
+## Before You Start (MANDATORY)
 
-**Read [`WORKPLAN.md`](WORKPLAN.md) first.** It is the single source of truth for:
+**Read [`WORKPLAN.md`](WORKPLAN.md) FIRST.** Do not write any code until you have:
+
+1. Read WORKPLAN.md completely
+2. Identified the current phase and its status
+3. Found the most recent handoff notes
+4. Determined what work to pick up next
+
+WORKPLAN.md is the single source of truth for:
 - Current phase and status
 - What work is done, in progress, or blocked
 - Session handoff notes from previous agents
 
 For deeper context on specific tasks, check [`notes/handoffs/`](notes/handoffs/).
+
+## Documentation Before Every Commit (NON-NEGOTIABLE)
+
+**You MUST update documentation BEFORE making any commit.** Every commit includes:
+
+1. **Code changes** — the actual implementation
+2. **WORKPLAN.md** — update progress checkboxes, phase status, handoff notes
+3. **progress.log** — append a timestamped entry
+4. **Handoff document** — create/update `notes/handoffs/YYYY-MM-DD-topic.md`
+
+This is not optional. A commit without documentation updates is incomplete.
+
+```bash
+# Correct workflow:
+1. Make code changes
+2. Update WORKPLAN.md (progress, status, handoff notes)
+3. Append to progress.log
+4. Create/update handoff in notes/handoffs/
+5. Stage ALL files together
+6. Commit with descriptive message
+
+# WRONG - never do this:
+git add src/
+git commit -m "implement feature"
+# Documentation left for "later" = documentation never happens
+```
+
+## Plans Must Be Persisted
+
+If you create a plan during this session (via EnterPlanMode or research):
+
+1. Write it to `docs/plans/YYYY-MM-DD-topic-kebab-case.md`
+2. Create a handoff in `notes/handoffs/` referencing the plan
+3. Include both in your commit
+
+Plans in the context window are lost on session end. Plans on disk survive.
 
 ## Goal
 
