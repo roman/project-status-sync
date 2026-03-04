@@ -340,14 +340,25 @@ until we're confident the extraction approach is sound.
 
 ### Progress
 
-- [ ] 1.1: Signal format definition
+- [x] 1.1: Signal format definition
 - [ ] 1.2: Project identification module
 - [ ] 1.3: SessionEnd hook
 - [ ] 1.4: Hook registration
 
 ### Handoff Notes
 
-*(To be filled)*
+#### 2026-03-04 — Phase 1.1 signal format definition
+
+**Completed**:
+- Created `CCS.Signal` module with `SignalPayload` type + Aeson instances
+- JSON schema: `{"transcript_path": "...", "cwd": "..."}`
+- `readSignal`/`writeSignal` file I/O helpers
+- JSON round-trip and decode tests in `test/Main.hs`
+- Example signal file at `docs/examples/signal-available.json`
+
+**Note**: Build not verified (ran in sandbox without cabal/ghc). Verify with `cabal build && cabal test`.
+
+**Next**: Phase 1.2 (project identification module) or Phase 1.3 (SessionEnd hook script)
 
 ---
 
@@ -644,7 +655,8 @@ No automatic hooks or slash commands needed for MVP.
 | 9 | 2026-03-03 | Infra | Microvm config migration to nixDir, nixDir bug fix |
 | 10 | 2026-03-03 | Research | RALPH sandbox: bubblewrap-claude + headless mode, blocked by tool exec |
 | 11 | 2026-03-03 | Infra | RALPH sandbox unblocked, proxy cleanup fix, flake integration |
-| 12 | — | — | *(next session)* |
+| 12 | 2026-03-04 | Phase 1 | Signal format definition (CCS.Signal module, tests, example) |
+| 13 | — | — | *(next session)* |
 
 ---
 
