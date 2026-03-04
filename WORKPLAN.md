@@ -23,7 +23,7 @@
 | Phase | Description | Status | Blocked By |
 |-------|-------------|--------|------------|
 | Infra.1-3 | flake.nix, Haskell skeleton, beads | **DONE** | — |
-| Infra.4 | MicroVM sandboxing for ralph loops | **DONE** | Infra.1-3 |
+| Infra.4 | MicroVM sandboxing for ralph loops | **ABANDONED** | Infra.1-3 |
 | 0 | Spike: validate extraction approach | PARTIAL | — |
 | 1 | Capture: hooks + signals | PENDING | — |
 | 2a | Tooling: pre-filter, record-event, aggregation | PENDING | Infra, Phase 1 (signal format) |
@@ -129,9 +129,19 @@ Phase 0: Spike ─────────────────────�
 
 ## Phase Infra.4: MicroVM Sandboxing
 
+**Status**: ABANDONED (2026-03-03)
+
 **Goal**: Enable safe ralph loops by running Claude in ephemeral NixOS VMs.
 
-### Gates
+**Why abandoned**: Fundamental issues with sharing /nix/store made it impractical:
+- 9p too slow for nix store access patterns
+- virtiofs required complex host daemon setup
+- nix database not shared, causing redundant fetches
+- Read-only squashfs root conflicted with writable store needs
+
+See: `notes/handoffs/2026-03-03-microvm-abandoned.md`
+
+### Gates (historical)
 
 - [x] VM boots successfully: `./scripts/run-sandbox.sh`
 - [x] Cannot access host `~/.ssh` from inside VM (not mounted)

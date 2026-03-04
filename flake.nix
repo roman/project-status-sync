@@ -1,11 +1,6 @@
 {
   description = "Claude Conversation Sync - cross-session context awareness";
 
-  nixConfig = {
-    extra-substituters = [ "https://microvm.cachix.org" ];
-    extra-trusted-public-keys = [ "microvm.cachix.org-1:oXnBc6hRE3eX5rSYdRyMYXnfzcCxC7yKPTbZXALsqys=" ];
-  };
-
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/release-25.11";
 
@@ -17,9 +12,6 @@
 
     devenv.url = "github:cachix/devenv";
     devenv.inputs.nixpkgs.follows = "nixpkgs";
-
-    microvm.url = "github:astro/microvm.nix";
-    microvm.inputs.nixpkgs.follows = "nixpkgs";
 
     systems.url = "github:nix-systems/default";
   };
@@ -39,12 +31,5 @@
         root = ./.;
         importWithInputs = true;
       };
-
-      perSystem =
-        { system, ... }:
-        {
-          packages.claude-sandbox =
-            inputs.self.nixosConfigurations.claude-sandbox.config.microvm.declaredRunner;
-        };
     };
 }

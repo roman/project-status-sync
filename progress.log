@@ -14,3 +14,4 @@
 2026-03-03 17:01 [unknown-] — Infra: switched to devenv with nixdir-skill, fixed session-tracking module signature
 2026-03-03 17:29 [f0a66dbb] — Infra.4: microvm config migrated to nixDir conventions, fixed nixDir bug
 2026-03-03 18:15 [14e966d0] — Infra.4: nix-serve substituter for VM, resolves nix store caching
+2026-03-03 19:30 [d5a77d41] — Infra.4: abandoned microvm sandbox (9p/virtiofs/nix-db issues too complex)
