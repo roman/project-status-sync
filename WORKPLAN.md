@@ -642,7 +642,9 @@ No automatic hooks or slash commands needed for MVP.
 | 7 | 2026-03-03 | Docs | Simplified scope, updated design.md, consolidated to WORKPLAN.md |
 | 8 | 2026-03-03 | Infra | Switched to devenv with nixdir-skill |
 | 9 | 2026-03-03 | Infra | Microvm config migration to nixDir, nixDir bug fix |
-| 10 | — | — | *(next session)* |
+| 10 | 2026-03-03 | Research | RALPH sandbox: bubblewrap-claude + headless mode, blocked by tool exec |
+| 11 | 2026-03-03 | Infra | RALPH sandbox unblocked, proxy cleanup fix, flake integration |
+| 12 | — | — | *(next session)* |
 
 ---
 

@@ -14,6 +14,9 @@
     devenv.inputs.nixpkgs.follows = "nixpkgs";
 
     systems.url = "github:nix-systems/default";
+
+    bubblewrap-claude.url = "github:roman/bubblewrap-claude/feat/headless-mode";
+    bubblewrap-claude.inputs.nixpkgs.follows = "nixpkgs";
   };
 
   outputs =

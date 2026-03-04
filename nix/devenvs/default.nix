@@ -24,6 +24,7 @@ in
     (pkgs.haskellPackages.ghcWithPackages haskellDeps)
     pkgs.haskellPackages.cabal-install
     pkgs.haskell-language-server
+    inputs.bubblewrap-claude.packages.${pkgs.system}.claude-headless
   ];
 
   claude.code.plugins.nixDir.enable = true;

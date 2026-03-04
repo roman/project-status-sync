@@ -16,3 +16,5 @@
 2026-03-03 18:15 [14e966d0] — Infra.4: nix-serve substituter for VM, resolves nix store caching
 2026-03-03 19:30 [d5a77d41] — Infra.4: abandoned microvm sandbox (9p/virtiofs/nix-db issues too complex)
 2026-03-03 19:45 [d5a77d41] — docs: added commit trigger to CLAUDE.md to prevent skipping doc updates
+2026-03-03 21:41 [4c23dda5] — Research: RALPH sandbox exploration, headless mode blocked by tool execution issue
+2026-03-03 22:45 [1dec5d29] — Infra: RALPH sandbox unblocked (claude-code update), proxy cleanup fix, bubblewrap-claude flake integration
