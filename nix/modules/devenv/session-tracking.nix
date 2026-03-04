@@ -1,4 +1,3 @@
-_flakeInputs:
 { pkgs, ... }:
 
 let

@@ -13,6 +13,10 @@
 
     nixDir.url = "github:roman/nixDir/v3";
     nixDir.inputs.nixpkgs.follows = "nixpkgs";
+    nixDir.inputs.devenv.follows = "devenv";
+
+    devenv.url = "github:cachix/devenv";
+    devenv.inputs.nixpkgs.follows = "nixpkgs";
 
     microvm.url = "github:astro/microvm.nix";
     microvm.inputs.nixpkgs.follows = "nixpkgs";
@@ -26,6 +30,7 @@
       systems = import inputs.systems;
 
       imports = [
+        inputs.devenv.flakeModule
         inputs.nixDir.flakeModule
       ];
 
@@ -36,29 +41,8 @@
       };
 
       perSystem =
-        { pkgs, ... }:
-        let
-          haskellDeps = hp: [
-            hp.aeson
-            hp.bytestring
-            hp.directory
-            hp.filepath
-            hp.optparse-applicative
-            hp.tasty
-            hp.tasty-hunit
-            hp.text
-            hp.time
-          ];
-        in
+        { ... }:
         {
-          devShells.default = pkgs.mkShell {
-            buildInputs = [
-              (pkgs.haskellPackages.ghcWithPackages haskellDeps)
-              pkgs.haskellPackages.cabal-install
-              pkgs.haskell-language-server
-            ];
-          };
-
           packages.claude-sandbox =
             inputs.self.nixosConfigurations.claude-sandbox.config.microvm.declaredRunner;
         };

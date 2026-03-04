@@ -11,3 +11,4 @@
 2026-03-03 15:51 [unknown] — Phase 2b: created handoff, progress, status synthesis prompts
 2026-03-03 15:57 [unknown] — docs: strengthened CLAUDE.md with commit discipline rules, added handoff
 2026-03-03 16:32 [unknown] — docs: simplified scope (removed skill-gap, plan-diff, precompact), updated design.md, deleted plan.md
+2026-03-03 17:01 [unknown] — Infra: switched to devenv with nixdir-skill, fixed session-tracking module signature

@@ -599,7 +599,8 @@ No automatic hooks or slash commands needed for MVP.
 | 5 | 2026-03-03 | Research | Notes repo protocol design |
 | 6 | 2026-03-03 | Phase 2b | Created handoff, progress, status synthesis prompts |
 | 7 | 2026-03-03 | Docs | Simplified scope, updated design.md, consolidated to WORKPLAN.md |
-| 8 | — | — | *(next session)* |
+| 8 | 2026-03-03 | Infra | Switched to devenv with nixdir-skill |
+| 9 | — | — | *(next session)* |
 
 ---
 
@@ -631,5 +632,5 @@ No automatic hooks or slash commands needed for MVP.
 imports = [ inputs.ccs.devenvModules.session-tracking ];
 ```
 
-**Note**: Project uses plain `mkShell` devShell. To use this module internally,
-either switch to devenv or manually configure the hook in `.claude/settings.json`.
+**Update 2026-03-03**: Project now uses devenv with session-tracking module enabled.
+The nixdir-skill is also installed for better assistance with nixDir flake structures.
