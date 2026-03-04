@@ -1,8 +1,8 @@
 # MicroVM Nix Store Caching Issue
 
 **Date**: 2026-03-03
-**Status**: Deferred — VM works for ralph loop, nix commands are slow
-**Blocking**: Nothing critical (ralph loop doesn't need nix commands in VM)
+**Status**: Resolved — using nix-serve substituter
+**Blocking**: None
 
 ## Problem
 
@@ -105,14 +105,35 @@ Keep the current setup. First run downloads, subsequent runs use cached overlay.
 **Pros**: Simple, no changes needed
 **Cons**: First run is slow, overlay image grows
 
-## Recommendation
+## Chosen Solution: Option 3 (nix-serve)
 
-For ralph loop use case: **No action needed**. The VM doesn't need to run nix commands —
-it runs `claude-code` and `git`, which are already in the VM's closure.
+Implemented nix-serve as a local substituter. The VM fetches packages from the host
+on demand over HTTP instead of downloading from cache.nixos.org.
 
-If nix commands become necessary:
-1. Start with Option 4 (accept slow, persist overlay)
-2. If too painful, implement Option 1 (register paths on boot)
+**Host configuration** (add to NixOS config):
+```nix
+services.nix-serve = {
+  enable = true;
+  port = 5000;
+  bindAddress = "0.0.0.0";
+};
+networking.firewall.allowedTCPPorts = [ 5000 ];
+```
+
+**VM configuration** (already applied):
+```nix
+nix.settings = {
+  substituters = [ "http://10.0.2.2:5000" "https://cache.nixos.org" ];
+  trusted-substituters = [ "http://10.0.2.2:5000" ];
+  require-sigs = false;  # Local nix-serve doesn't sign
+};
+```
+
+**Why this approach**:
+- No files to track (unlike closure.json)
+- On-demand fetching (only copies what's needed)
+- Simple stateless HTTP server on host
+- Falls back to cache.nixos.org if host unavailable
 
 ## Files to Modify (if implementing Option 1)
 

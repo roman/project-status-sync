@@ -233,6 +233,18 @@ nix/configurations/nixos/claude-sandbox/
 └── configuration.nix  # NixOS module with microvm config
 ```
 
+#### 2026-03-03 — Nix-serve substituter for VM
+
+**Completed**:
+- Configured sandbox VM to use host's nix-serve as substituter
+- `http://10.0.2.2:5000` (QEMU user-mode gateway) as primary substituter
+- Falls back to `cache.nixos.org` if host unavailable
+- Resolves nix store caching issue without needing closure.json files
+
+**Requires**: Host machine must run `services.nix-serve` on port 5000
+
+**Updated**: `notes/handoffs/2026-03-03-microvm-nix-store-caching.md`
+
 ---
 
 ## Phase 0: Spike

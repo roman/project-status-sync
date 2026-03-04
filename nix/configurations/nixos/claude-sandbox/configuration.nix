@@ -47,6 +47,19 @@
       "root"
       "claude"
     ];
+    # Use host's nix-serve as substituter (10.0.2.2 is QEMU user-mode gateway)
+    substituters = [
+      "http://10.0.2.2:5000"
+      "https://cache.nixos.org"
+    ];
+    trusted-substituters = [
+      "http://10.0.2.2:5000"
+    ];
+    # Don't require signatures from local nix-serve
+    trusted-public-keys = [
+      "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
+    ];
+    require-sigs = false;
   };
 
   # Writable tmpfs for nix var (database, temproots, etc.)
@@ -89,8 +102,10 @@
     Claude Sandbox VM
 
     Mounts:
-      /project     - shared project directory (if passed)
-      /nix/.ro-store - host nix store (read-only)
+      /project       - shared project directory (if passed)
+      /nix/.ro-store - host nix store (read-only overlay)
+
+    Nix: uses host nix-serve at http://10.0.2.2:5000 as substituter
 
     To exit: poweroff (or Ctrl-A X in QEMU)
   '';
