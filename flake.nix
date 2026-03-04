@@ -41,20 +41,10 @@
       };
 
       perSystem =
-        { ... }:
+        { system, ... }:
         {
           packages.claude-sandbox =
             inputs.self.nixosConfigurations.claude-sandbox.config.microvm.declaredRunner;
         };
-
-      flake = {
-        nixosConfigurations.claude-sandbox = inputs.nixpkgs.lib.nixosSystem {
-          system = "x86_64-linux";
-          modules = [
-            inputs.microvm.nixosModules.microvm
-            ./nix/microvm/claude-sandbox.nix
-          ];
-        };
-      };
     };
 }

@@ -39,15 +39,24 @@
   # Enable nix daemon and flakes
   nix.enable = true;
   nix.settings = {
-    experimental-features = [ "nix-command" "flakes" ];
-    trusted-users = [ "root" "claude" ];
+    experimental-features = [
+      "nix-command"
+      "flakes"
+    ];
+    trusted-users = [
+      "root"
+      "claude"
+    ];
   };
 
   # Writable tmpfs for nix var (database, temproots, etc.)
   fileSystems."/nix/var" = {
     device = "none";
     fsType = "tmpfs";
-    options = [ "mode=0755" "size=1G" ];
+    options = [
+      "mode=0755"
+      "size=1G"
+    ];
   };
 
   # Ensure nix-daemon is running (microvm.optimize may mask it)
@@ -103,11 +112,13 @@
     # Writable overlay for nix store (required for nix commands to work)
     writableStoreOverlay = "/nix/.rw-store";
 
-    volumes = [{
-      image = "nix-store-overlay.img";
-      mountPoint = "/nix/.rw-store";
-      size = 2048;  # 2GB
-    }];
+    volumes = [
+      {
+        image = "nix-store-overlay.img";
+        mountPoint = "/nix/.rw-store";
+        size = 2048; # 2GB
+      }
+    ];
 
     # Dynamic shares passed via MICROVM_EXTRA_ARGS by ralph-loop-sandboxed.sh
     # Format: -virtfs local,path=/path,mount_tag=project,security_model=mapped-xattr
@@ -131,19 +142,37 @@
   fileSystems."/project" = {
     device = "project";
     fsType = "9p";
-    options = [ "trans=virtio" "version=9p2000.L" "msize=104857600" "nofail" "x-systemd.automount" ];
+    options = [
+      "trans=virtio"
+      "version=9p2000.L"
+      "msize=104857600"
+      "nofail"
+      "x-systemd.automount"
+    ];
   };
 
   fileSystems."/home/claude/.gitconfig" = {
     device = "gitconfig";
     fsType = "9p";
-    options = [ "trans=virtio" "version=9p2000.L" "ro" "nofail" "x-systemd.automount" ];
+    options = [
+      "trans=virtio"
+      "version=9p2000.L"
+      "ro"
+      "nofail"
+      "x-systemd.automount"
+    ];
   };
 
   fileSystems."/run/secrets/anthropic" = {
     device = "anthropic";
     fsType = "9p";
-    options = [ "trans=virtio" "version=9p2000.L" "ro" "nofail" "x-systemd.automount" ];
+    options = [
+      "trans=virtio"
+      "version=9p2000.L"
+      "ro"
+      "nofail"
+      "x-systemd.automount"
+    ];
   };
 
   system.stateVersion = "25.11";

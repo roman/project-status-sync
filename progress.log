@@ -1,14 +1,15 @@
 # Progress log. Append-only, single-line entries for tail -f monitoring.
-# Format: YYYY-MM-DD HH:MM — Phase X.Y: description
-2026-03-01 23:40 — Bootstrap: Created repo, docs structure, pre-filter script, extraction prompt
-2026-03-02 15:30 — Research: Analyzed iidy-hs ralph loop, designed microvm sandboxing architecture
-2026-03-02 16:45 — Research: Created WORKPLAN.md following iidy-hs pattern
-2026-03-02 17:15 — Refactor: Removed progress.md, consolidated into WORKPLAN.md + notes/handoffs/
-2026-03-02 23:55 — Infra.4: MicroVM sandbox setup (flake, VM config, ralph-loop script, RALPH.md)
-2026-03-03 00:20 — Infra.4: VM functional for ralph loop, deferred nix store caching issue
-2026-03-03 11:05 [unknown] — Tooling: devenv module for session ID tracking in progress.log
-2026-03-03 15:39 [unknown] — Research: Notes repo protocol design, plan created
-2026-03-03 15:51 [unknown] — Phase 2b: created handoff, progress, status synthesis prompts
-2026-03-03 15:57 [unknown] — docs: strengthened CLAUDE.md with commit discipline rules, added handoff
-2026-03-03 16:32 [unknown] — docs: simplified scope (removed skill-gap, plan-diff, precompact), updated design.md, deleted plan.md
-2026-03-03 17:01 [unknown] — Infra: switched to devenv with nixdir-skill, fixed session-tracking module signature
+# Format: YYYY-MM-DD HH:MM [session-id] — Phase X.Y: description
+2026-03-01 23:40 [unknown-] — Bootstrap: Created repo, docs structure, pre-filter script, extraction prompt
+2026-03-02 15:30 [unknown-] — Research: Analyzed iidy-hs ralph loop, designed microvm sandboxing architecture
+2026-03-02 16:45 [unknown-] — Research: Created WORKPLAN.md following iidy-hs pattern
+2026-03-02 17:15 [unknown-] — Refactor: Removed progress.md, consolidated into WORKPLAN.md + notes/handoffs/
+2026-03-02 23:55 [unknown-] — Infra.4: MicroVM sandbox setup (flake, VM config, ralph-loop script, RALPH.md)
+2026-03-03 00:20 [unknown-] — Infra.4: VM functional for ralph loop, deferred nix store caching issue
+2026-03-03 11:05 [unknown-] — Tooling: devenv module for session ID tracking in progress.log
+2026-03-03 15:39 [unknown-] — Research: Notes repo protocol design, plan created
+2026-03-03 15:51 [unknown-] — Phase 2b: created handoff, progress, status synthesis prompts
+2026-03-03 15:57 [unknown-] — docs: strengthened CLAUDE.md with commit discipline rules, added handoff
+2026-03-03 16:32 [unknown-] — docs: simplified scope (removed skill-gap, plan-diff, precompact), updated design.md, deleted plan.md
+2026-03-03 17:01 [unknown-] — Infra: switched to devenv with nixdir-skill, fixed session-tracking module signature
+2026-03-03 17:29 [f0a66dbb] — Infra.4: microvm config migrated to nixDir conventions, fixed nixDir bug

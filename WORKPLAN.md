@@ -214,6 +214,25 @@ Phase 0: Spike ─────────────────────�
 
 **To Exit VM**: `poweroff` or `Ctrl-A X`
 
+#### 2026-03-03 — Microvm config migrated to nixDir conventions
+
+**Completed**:
+- Moved `nix/microvm/claude-sandbox.nix` → `nix/configurations/nixos/claude-sandbox/`
+- Now uses nixDir auto-discovery for nixosConfigurations
+- Removed manual `flake = { nixosConfigurations = ... }` from flake.nix
+
+**Bug Fixed in nixDir**:
+- `importWithInputs` option wasn't being respected for flake-level configurations
+- Fixed in local nixDir (commit 0527f2c on v3 branch)
+- See: `notes/handoffs/2026-03-03-nixdir-configuration-fix.md`
+
+**Structure**:
+```
+nix/configurations/nixos/claude-sandbox/
+├── default.nix        # nixDir entry: inputs: { system, modules }
+└── configuration.nix  # NixOS module with microvm config
+```
+
 ---
 
 ## Phase 0: Spike
@@ -600,7 +619,8 @@ No automatic hooks or slash commands needed for MVP.
 | 6 | 2026-03-03 | Phase 2b | Created handoff, progress, status synthesis prompts |
 | 7 | 2026-03-03 | Docs | Simplified scope, updated design.md, consolidated to WORKPLAN.md |
 | 8 | 2026-03-03 | Infra | Switched to devenv with nixdir-skill |
-| 9 | — | — | *(next session)* |
+| 9 | 2026-03-03 | Infra | Microvm config migration to nixDir, nixDir bug fix |
+| 10 | — | — | *(next session)* |
 
 ---
 
