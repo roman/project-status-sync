@@ -1,5 +1,5 @@
 module CCS (
-    version,
+  version,
 ) where
 
 import RIO

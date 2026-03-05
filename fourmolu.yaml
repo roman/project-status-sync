@@ -1,0 +1,16 @@
+indentation: 2
+function-arrows: leading
+comma-style: leading
+import-export-style: diff-friendly
+let-style: newline
+in-style: left-align
+single-constraint-parens: never
+single-deriving-parens: always
+sort-constraints: true
+sort-deriving-clauses: true
+unicode: never
+respectful: true
+haddock-style: single-line
+newlines-between-decls: 1
+if-style: indented
+trailing-section-operators: false
