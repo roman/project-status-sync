@@ -1,6 +1,8 @@
-module CCS
-  ( version
-  ) where
+module CCS (
+    version,
+) where
 
-version :: String
+import RIO
+
+version :: Text
 version = "0.1.0.0"

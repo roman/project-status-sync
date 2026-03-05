@@ -1,37 +1,38 @@
-module CCS.Signal
-  ( SignalPayload(..)
-  , readSignal
-  , writeSignal
-  ) where
+module CCS.Signal (
+    SignalPayload (..),
+    readSignal,
+    writeSignal,
+) where
 
-import Data.Aeson (FromJSON(..), ToJSON(..), object, withObject, (.:), (.=))
-import Data.Text (Text)
+import RIO
 
-import qualified Data.Aeson as Aeson
-import qualified Data.ByteString.Lazy as LBS
+import Data.Aeson (FromJSON (..), ToJSON (..), object, withObject, (.:), (.=))
+import Data.Aeson qualified as Aeson
+import RIO.ByteString.Lazy qualified as LBS
 
--- | On-disk JSON payload written by the SessionEnd hook.
--- This is the raw content of an @.available@ signal file.
 data SignalPayload = SignalPayload
-  { signalTranscriptPath :: Text
-  , signalCwd            :: Text
-  }
-  deriving stock (Eq, Show)
+    { signalTranscriptPath :: !Text
+    , signalCwd :: !Text
+    }
+    deriving stock (Eq, Show)
 
 instance ToJSON SignalPayload where
-  toJSON sp = object
-    [ "transcript_path" .= signalTranscriptPath sp
-    , "cwd"             .= signalCwd sp
-    ]
+    toJSON SignalPayload{..} =
+        object
+            [ "transcript_path" .= signalTranscriptPath
+            , "cwd" .= signalCwd
+            ]
 
 instance FromJSON SignalPayload where
-  parseJSON = withObject "SignalPayload" $ \o ->
-    SignalPayload
-      <$> o .: "transcript_path"
-      <*> o .: "cwd"
+    parseJSON = withObject "SignalPayload" $ \o ->
+        SignalPayload
+            <$> o
+            .: "transcript_path"
+            <*> o
+            .: "cwd"
 
-readSignal :: FilePath -> IO (Either String SignalPayload)
-readSignal path = Aeson.eitherDecode <$> LBS.readFile path
+readSignal :: (MonadIO m) => FilePath -> m (Either String SignalPayload)
+readSignal path = liftIO $ Aeson.eitherDecode <$> LBS.readFile path
 
-writeSignal :: FilePath -> SignalPayload -> IO ()
-writeSignal path = LBS.writeFile path . Aeson.encode
+writeSignal :: (MonadIO m) => FilePath -> SignalPayload -> m ()
+writeSignal path = liftIO . LBS.writeFile path . Aeson.encode

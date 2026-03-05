@@ -682,6 +682,18 @@ forAllValid, producesValid combinators. Patterns from mergeful/mergeless.
 
 **Research sources**: RIO library, NorfairKing/mergeful, NorfairKing/mergeless
 
+#### 2026-03-04 — RIO conventions applied to codebase
+
+**Completed**:
+- Refactored all source files to RIO conventions (NoImplicitPrelude, strict fields, Text, MonadIO library sigs)
+- Added `rio` dependency, shared `common extensions` stanza, expanded GHC warnings
+- `runSimpleApp` + `logInfo` in app/Main.hs
+- Verified: `cabal build` + `cabal test` (3/3 pass)
+
+**Deferred**: Full App record/Has* (no state yet), genvalidity (few types), structured logging (no operations yet)
+
+See: `notes/handoffs/2026-03-04-rio-refactor.md`
+
 ---
 
 ## Supplementary: Session Tracking
