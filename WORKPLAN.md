@@ -640,24 +640,47 @@ No automatic hooks or slash commands needed for MVP.
 
 ---
 
-## Session Log
+## Supplementary: Haskell Development Skill
 
-| Session | Date | Phase | Summary |
-|---------|------|-------|---------|
-| 1 | 2026-03-01 | Bootstrap | Created repo, docs, pre-filter script, extraction prompt |
-| 2 | 2026-03-02 | Research | Ralph loop analysis, microvm sandboxing research |
-| 3 | 2026-03-02/03 | Infra | flake.nix, Haskell skeleton, beads, MicroVM sandbox |
-| 4 | 2026-03-03 | Tooling | Session ID tracking via devenv module |
-| 5 | 2026-03-03 | Research | Notes repo protocol design |
-| 6 | 2026-03-03 | Phase 2b | Created handoff, progress, status synthesis prompts |
-| 7 | 2026-03-03 | Docs | Simplified scope, updated design.md, consolidated to WORKPLAN.md |
-| 8 | 2026-03-03 | Infra | Switched to devenv with nixdir-skill |
-| 9 | 2026-03-03 | Infra | Microvm config migration to nixDir, nixDir bug fix |
-| 10 | 2026-03-03 | Research | RALPH sandbox: bubblewrap-claude + headless mode, blocked by tool exec |
-| 11 | 2026-03-03 | Infra | RALPH sandbox unblocked, proxy cleanup fix, flake integration |
-| 12 | 2026-03-04 | Phase 1 | Signal format definition (CCS.Signal module, tests, example) |
-| 13 | 2026-03-03 | Infra | ralph-test.sh script, first successful sandbox RALPH run |
-| 14 | — | — | *(next session)* |
+**Goal**: Codify Haskell development conventions for coding agents.
+
+### Implementation
+
+- Skill content at `nix/packages/haskell-development-skill/` (SKILL.md + references/)
+- Package derivation builds to `share/claude/skills/haskell-development-skill/`
+- Home-manager module at `nix/modules/home-manager/haskell-development-skill/`
+- Devenv module at `nix/modules/devenv/haskell-development-skill.nix` (fourmolu + hlint + git-hooks)
+- Exported as `packages.<system>.haskell-development-skill` and `homeManagerModules.haskell-development-skill`
+
+### Conventions Covered
+
+RIO-based: NoImplicitPrelude, ReaderT pattern, Has* typeclasses with lenses,
+strict fields, no partial functions, Maybe/Either for detectable errors,
+Text over String, structured logging, MonadUnliftIO, point-free style,
+let-in over where.
+
+### Testing Conventions
+
+Tasty + tasty-quickcheck + genvalidity. Validity/GenValid instances,
+forAllValid, producesValid combinators. Patterns from mergeful/mergeless.
+
+### Tooling
+
+- Fourmolu (formatter) — git pre-commit hook
+- HLint (linter) — git pre-commit hook
+
+### Handoff Notes
+
+#### 2026-03-04 — Initial creation
+
+**Completed**:
+- SKILL.md with 14 convention sections
+- references/examples.md with ~15 BAD/GOOD code pairs
+- Nix package, home-manager module, devenv module
+- Git-hooks for fourmolu and hlint
+- Verified: `nix build .#haskell-development-skill` and `nix develop --impure`
+
+**Research sources**: RIO library, NorfairKing/mergeful, NorfairKing/mergeless
 
 ---
 

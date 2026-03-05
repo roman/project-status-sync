@@ -18,6 +18,7 @@ in
   imports = [
     inputs.nixDir.devenvModules.nixdir-skill
     inputs.self.devenvModules.session-tracking
+    inputs.self.devenvModules.haskell-development-skill
   ];
 
   packages = [

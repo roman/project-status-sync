@@ -8,6 +8,7 @@ result-*
 nix-store-overlay.img
 .current-session-id
 .devenv/
+.pre-commit-config.yaml
 .claude/
 .ralph-prompt
 .ralph-stop
