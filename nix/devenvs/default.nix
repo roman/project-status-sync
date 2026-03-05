@@ -21,6 +21,8 @@ in
     inputs.self.devenvModules.haskell-development-skill
   ];
 
+  _module.args = { inherit inputs; };
+
   packages = [
     (pkgs.haskellPackages.ghcWithPackages haskellDeps)
     pkgs.haskellPackages.cabal-install
@@ -34,4 +36,5 @@ in
   };
 
   claude.code.plugins.nixDir.enable = true;
+  claude.code.plugins.haskell-development.enable = true;
 }
