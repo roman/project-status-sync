@@ -38,6 +38,7 @@ library
   default-language: GHC2021
   exposed-modules:
     CCS
+    CCS.Project
     CCS.Signal
   build-depends:
       base >= 4.17 && < 5
@@ -45,6 +46,7 @@ library
     , directory
     , filepath
     , optparse-applicative
+    , process
     , rio
     , time
 

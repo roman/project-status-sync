@@ -341,7 +341,7 @@ until we're confident the extraction approach is sound.
 ### Progress
 
 - [x] 1.1: Signal format definition
-- [ ] 1.2: Project identification module
+- [x] 1.2: Project identification module
 - [ ] 1.3: SessionEnd hook
 - [ ] 1.4: Hook registration
 
@@ -359,6 +359,20 @@ until we're confident the extraction approach is sound.
 **Note**: Build not verified (ran in sandbox without cabal/ghc). Verify with `cabal build && cabal test`.
 
 **Next**: Phase 1.2 (project identification module) or Phase 1.3 (SessionEnd hook script)
+
+#### 2026-03-05 — Phase 1.2 project identification module
+
+**Completed**:
+- Created `CCS.Project` module with `ProjectKey`, `ProjectName`, `Project` types
+- `identifyProject` shells out to git for remote URL and root path
+- `normalizeRemoteUrl` normalizes SSH (SCP-style), ssh://, https://, http:// to `host/path`
+- Monorepo support: appends relative subpath from git root to key
+- Directory fallback for non-git projects (uses last path component)
+- 9 unit tests for URL normalization (SSH/HTTPS equivalence, token auth, corporate hosts)
+
+**Note**: Build not verified (ran in sandbox without cabal/ghc). Verify with `cabal build && cabal test`.
+
+**Next**: Phase 1.3 (SessionEnd hook script) or Phase 1.4 (hook registration)
 
 ---
 
