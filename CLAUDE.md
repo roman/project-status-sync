@@ -12,9 +12,8 @@
 WORKPLAN.md is the single source of truth for:
 - Current phase and status
 - What work is done, in progress, or blocked
-- Session handoff notes from previous agents
 
-For deeper context on specific tasks, check [`notes/handoffs/`](notes/handoffs/).
+Session handoff notes live in [`notes/handoffs/`](notes/handoffs/). WORKPLAN.md links to them via `See:` references.
 
 ## Documentation Before Every Commit (NON-NEGOTIABLE)
 
@@ -27,7 +26,7 @@ For deeper context on specific tasks, check [`notes/handoffs/`](notes/handoffs/)
 **Every commit includes:**
 
 1. **Code changes** — the actual implementation
-2. **WORKPLAN.md** — update progress checkboxes, phase status, handoff notes
+2. **WORKPLAN.md** — update progress checkboxes, phase status
 3. **progress.log** — append a timestamped entry
 4. **Handoff document** — create/update `notes/handoffs/YYYY-MM-DD-topic.md`
 
