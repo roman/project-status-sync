@@ -345,11 +345,39 @@ until we're confident the extraction approach is sound.
 - Create hook script (reads JSON from stdin)
 - Write `.available` signal file
 
-#### 1.4: Hook registration
+#### 1.4: Hook registration via home-manager module
 
-- Create home-manager module for hooks
-- Wire hooks into `~/.claude/settings.json`
-- Test hook invocation
+**Approach**: Follow the beads pattern — standalone package + home-manager module that
+contributes to `programs.claude-code.settings.hooks`.
+
+**1.4a: Package the hook script** (`nix/packages/ccs-session-end-hook/default.nix`)
+
+- Use `pkgs.writeShellApplication` to create a derivation
+- Name: `ccs-session-end-hook`
+- Runtime deps: `jq` (the only external dependency)
+- Move `scripts/session-end-hook.sh` logic into the package derivation
+- The packaged script gets `jq` on PATH automatically via `writeShellApplication`
+- Exported as `packages.<system>.ccs-session-end-hook` via nixDir auto-discovery
+
+**1.4b: Home-manager module** (`nix/modules/home-manager/ccs-session-end-hook/default.nix`)
+
+- Option namespace: `programs.claude-code.plugins.conversation-sync`
+- `enable` option via `lib.mkEnableOption`
+- `package` option defaulting to `inputs.self.packages.${system}.ccs-session-end-hook`
+- Optional `signalDir` option (overrides `CCS_SIGNAL_DIR`, defaults to XDG)
+- Sets `programs.claude-code.settings.hooks.SessionEnd` with command pointing to
+  `${cfg.package}/bin/ccs-session-end-hook`
+- If `signalDir` is set, wraps the command with `CCS_SIGNAL_DIR=... ` prefix
+- Exported as `homeManagerModules.ccs-session-end-hook` via nixDir
+
+**1.4c: Verification**
+
+- `nix build .#ccs-session-end-hook` succeeds
+- Built script has `jq` on PATH (check via `ldd` or running it)
+- Manual test: `echo '{"session_id":"test","transcript_path":"/tmp/t","cwd":"/tmp"}' | ccs-session-end-hook`
+  creates signal file
+- After importing in a consuming flake: `~/.claude/settings.json` contains `SessionEnd`
+  hook entry pointing to `/nix/store/.../bin/ccs-session-end-hook`
 
 ### Progress
 
