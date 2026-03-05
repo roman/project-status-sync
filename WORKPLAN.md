@@ -13,7 +13,7 @@
 
 ## Operational Notes
 
-- Build: `nix develop` then `cabal build`
+- Build: `nix develop --impure` then `cabal build`
 - Test: `cabal test`
 - Run: `cabal run ccs -- --help`
 - Git: Follow 50/72 commit message rule, focus on why

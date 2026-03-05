@@ -28,5 +28,10 @@ in
     inputs.bubblewrap-claude.packages.${pkgs.system}.claude-headless
   ];
 
+  git-hooks.hooks.nixfmt = {
+    enable = true;
+    package = pkgs.nixfmt-rfc-style;
+  };
+
   claude.code.plugins.nixDir.enable = true;
 }
