@@ -21,7 +21,7 @@ in
     inputs.self.devenvModules.haskell-development-skill
   ];
 
-  _module.args = { inherit inputs; };
+  # _module.args = { inherit inputs; };
 
   packages = [
     (pkgs.haskellPackages.ghcWithPackages haskellDeps)
