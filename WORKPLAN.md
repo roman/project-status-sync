@@ -355,7 +355,7 @@ until we're confident the extraction approach is sound.
 
 - [x] 1.1: Signal format definition
 - [x] 1.2: Project identification module
-- [ ] 1.3: SessionEnd hook
+- [x] 1.3: SessionEnd hook
 - [ ] 1.4: Hook registration
 
 ### Handoff Notes
@@ -386,6 +386,20 @@ until we're confident the extraction approach is sound.
 **Note**: Build not verified (ran in sandbox without cabal/ghc). Verify with `cabal build && cabal test`.
 
 **Next**: Phase 1.3 (SessionEnd hook script) or Phase 1.4 (hook registration)
+
+#### 2026-03-05 — Phase 1.3 SessionEnd hook script
+
+**Completed**:
+- Created `scripts/session-end-hook.sh` — reads Claude Code hook JSON from stdin
+- Extracts `session_id`, `transcript_path`, `cwd` from stdin payload
+- Writes `{signal_dir}/{session_id}.available` containing SignalPayload JSON
+- Signal dir: `$CCS_SIGNAL_DIR` or `${XDG_STATE_HOME}/ccs/signals/` (XDG default)
+- Silently exits on missing fields (hook must stay fast)
+- Tested: correct signal output, missing field handling, extra field stripping
+
+**Note**: Build not verified (sandbox lacks cabal/ghc). No Haskell changes in this chunk.
+
+**Next**: Phase 1.4 (hook registration via home-manager module)
 
 ---
 
