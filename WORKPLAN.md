@@ -25,7 +25,7 @@
 | Infra.1-3 | flake.nix, Haskell skeleton, beads | **DONE** | — |
 | Infra.4 | MicroVM sandboxing for ralph loops | **ABANDONED** | Infra.1-3 |
 | 0 | Spike: validate extraction approach | PARTIAL | — |
-| 1 | Capture: hooks + signals | PENDING | — |
+| 1 | Capture: hooks + signals | DONE (verify build) | — |
 | 2a | Tooling: pre-filter, record-event, aggregation | PENDING | Infra, Phase 1 (signal format) |
 | 2b | Prompts: extraction, handoff, progress, synthesis | PARTIAL | Infra |
 | 2c | Integration: wire everything together | PENDING | 1, 2a, 2b |
@@ -384,7 +384,7 @@ contributes to `programs.claude-code.settings.hooks`.
 - [x] 1.1: Signal format definition
 - [x] 1.2: Project identification module
 - [x] 1.3: SessionEnd hook
-- [ ] 1.4: Hook registration
+- [x] 1.4: Hook registration (1.4a + 1.4b done, 1.4c needs nix build verification)
 
 ### Handoff Notes
 
@@ -428,6 +428,21 @@ contributes to `programs.claude-code.settings.hooks`.
 **Note**: Build not verified (sandbox lacks cabal/ghc). No Haskell changes in this chunk.
 
 **Next**: Phase 1.4 (hook registration via home-manager module)
+
+#### 2026-03-05 — Phase 1.4a+b hook registration packaging
+
+**Completed**:
+- Created `nix/packages/ccs-session-end-hook/default.nix` — `writeShellApplication` wrapping hook script
+- Runtime dep: `jq` (added to PATH automatically via `runtimeInputs`)
+- Created `nix/modules/home-manager/ccs-session-end-hook/default.nix`
+- Option namespace: `programs.claude-code.plugins.conversation-sync`
+- Sets `programs.claude-code.settings.hooks.SessionEnd` hook entry
+- Optional `signalDir` option to override `CCS_SIGNAL_DIR`
+- Follows exact pattern from haskell-development-skill module
+
+**Not verified**: No nix tools in sandbox. Needs `nix build .#ccs-session-end-hook` on host.
+
+**Remaining**: 1.4c verification (must be done outside sandbox)
 
 ---
 
