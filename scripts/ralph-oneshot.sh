@@ -60,17 +60,11 @@ kill_zombies() {
 
 kill_zombies
 
-DEFAULT_PROMPT='Read WORKPLAN.md to understand project state.
+DEFAULT_PROMPT='Read RALPH.md for your operating instructions.
+Read WORKPLAN.md to understand project state.
 
-Pick ONE small, concrete task from the next pending phase — preferably Phase 1.1 (signal format definition) or any other clearly scoped chunk.
-
-Do the following in order:
-1. Implement the task (keep it minimal)
-2. Update WORKPLAN.md progress checkboxes
-3. Append to progress.log
-4. Commit all changes together
-
-After committing, create the file `.ralph-stop` and then exit immediately. Do NOT start another task. Your job is exactly one commit, then stop.'
+Pick ONE small, concrete task from the next pending phase — preferably the next unchecked chunk.
+Follow the workflow described in RALPH.md, then exit. Your job is exactly one commit, then stop.'
 
 PROMPT="${1:-$DEFAULT_PROMPT}"
 
@@ -90,12 +84,13 @@ BEFORE=$(ls "$SESSION_DIR"/*.jsonl 2>/dev/null | sort || true)
 COMMITS_BEFORE=$(git -C "$PROJECT_DIR" rev-list --count HEAD 2>/dev/null || echo 0)
 
 # Launch sandbox
+mkdir -p "$PROJECT_DIR/tmp"
 echo "Starting sandbox (timeout: ${TIMEOUT}s)..."
 echo "Project: $PROJECT_DIR"
 echo "---"
 
 cd "$PROJECT_DIR"
-env -u CLAUDECODE claude-headless . > /tmp/ralph-test.log 2>&1 &
+env -u CLAUDECODE claude-headless . > $PROJECT_DIR/tmp/ralph-oneshot.log 2>&1 &
 SANDBOX_PID=$!
 
 cleanup() {
@@ -128,7 +123,7 @@ for i in $(seq 1 "$TIMEOUT"); do
             rm -f "$PROJECT_DIR/.ralph-stop"
         fi
         echo "=== Sandbox output (last 20 lines) ==="
-        tail -20 /tmp/ralph-test.log
+        tail -20 $PROJECT_DIR/tmp/ralph-oneshot.log
         exit $EXIT
     fi
 
@@ -149,5 +144,5 @@ done
 echo "[${TIMEOUT}s] TIMEOUT — killing sandbox"
 kill "$SANDBOX_PID" 2>/dev/null || true
 echo "=== Sandbox output (last 20 lines) ==="
-tail -20 /tmp/ralph-test.log
+tail -20 $PROJECT_DIR/tmp/ralph-oneshot.log
 exit 1

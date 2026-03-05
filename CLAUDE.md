@@ -132,7 +132,6 @@ head -c8 .current-session-id 2>/dev/null || echo "unknown"
 ## Documentation
 
 - [`docs/design.md`](docs/design.md) — full system design, domain model, types
-- [`docs/plan.md`](docs/plan.md) — original phased plan (WORKPLAN.md is the live version)
 - [`docs/decisions/`](docs/decisions/) — architecture decision records
 - [`notes/`](notes/) — research docs and session handoffs
 
@@ -206,7 +205,5 @@ without manual note-taking.
 
 ## Ralph Mode (Headless Operation)
 
-If running in headless mode (`claude -p`), read `RALPH.md` for additional instructions
-about message inbox checking and clean exit protocol.
-
-*(RALPH.md to be created when headless operation is needed)*
+If running in headless mode (`claude -p`), read [`RALPH.md`](RALPH.md) for additional
+instructions about sandbox environment, test gates, and clean exit protocol.

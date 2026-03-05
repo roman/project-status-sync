@@ -25,3 +25,4 @@
 2026-03-04 19:22 [096d828d] — Tooling: fix haskell-development-skill devenv module to install skill files into .claude/
 2026-03-04 19:31 [5d4bfb11] — Refactor: RIO conventions (NoImplicitPrelude, strict fields, Text over String, MonadIO library sigs)
 2026-03-05 00:00 [83f3dda0] — Phase 1.2: project identification module (ProjectKey/ProjectName types, URL normalization, git remote + subpath logic)
+2026-03-04 21:50 [5e01e56b] — Infra: RALPH audit & overhaul (rewrite RALPH.md for bwrap, add ralph-loop/msg/oneshot scripts, design gate, code-critic review)

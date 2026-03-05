@@ -13,4 +13,5 @@ nix-store-overlay.img
 .ralph-prompt
 .ralph-stop
 .msgs/
+tmp/
 .envrc

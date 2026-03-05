@@ -255,6 +255,19 @@ nix/configurations/nixos/claude-sandbox/
 
 **Updated**: `notes/handoffs/2026-03-03-microvm-nix-store-caching.md`
 
+#### 2026-03-04 — RALPH audit & script suite
+
+**Completed**:
+- Audited RALPH.md (9 issues found), rewrote for bubblewrap sandbox reality
+- Added design gate (proposals for one-way-door decisions) and code-critic review step
+- Renamed ralph-test.sh → ralph-oneshot.sh
+- Created ralph-loop.sh (loop runner with exit code handling)
+- Created ralph-msg.sh (reqID-based async messaging)
+- All logs moved to project-local `tmp/` directory
+- Message inbox protocol: `<id>.md` → `<id>.reply.md`
+
+See: `notes/handoffs/2026-03-04-ralph-scripts-audit.md`
+
 ---
 
 ## Phase 0: Spike
