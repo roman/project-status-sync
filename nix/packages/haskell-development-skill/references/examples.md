@@ -2,6 +2,82 @@
 
 BAD/GOOD pairs for every convention in SKILL.md.
 
+## Module Organization
+
+```haskell
+-- BAD: horizontal modules by language feature
+module Types where        -- grabs everything
+module Constants where    -- random values
+module Utils where        -- junk drawer
+
+-- GOOD: vertical modules by domain
+module MyApp.Parsing (parseConfig, ParseError) where
+module MyApp.Evaluation (eval, Value(..)) where
+module MyApp.Pretty (render, Doc) where
+```
+
+## Export Lists
+
+```haskell
+-- BAD: bare module, everything exported
+module MyApp.Config where
+
+-- GOOD: explicit export list
+module MyApp.Config
+  ( Config
+  , mkConfig
+  , configHost
+  , configPort
+  ) where
+```
+
+## Smart Constructors
+
+```haskell
+-- BAD: exposed data constructor
+module MyApp.Port (Port(..)) where
+
+data Port = Port Int
+
+-- GOOD: hidden constructor, smart constructor + accessor
+module MyApp.Port (Port, mkPort, portNumber) where
+
+data Port = Port !Int
+
+mkPort :: Int -> Maybe Port
+mkPort n
+  | n > 0 && n <= 65535 = Just (Port n)
+  | otherwise = Nothing
+
+portNumber :: Port -> Int
+portNumber (Port n) = n
+```
+
+## Single Library Stanza
+
+```cabal
+-- BAD: code duplicated across stanzas
+executable my-app
+  main-is: Main.hs
+  other-modules: MyApp.Config, MyApp.Parsing, ...
+
+test-suite my-tests
+  other-modules: MyApp.Config, MyApp.Parsing, ...
+
+-- GOOD: thin wrappers over library
+library
+  exposed-modules: MyApp.Config, MyApp.Parsing, MyApp.Main
+  ...
+
+executable my-app
+  main-is: Main.hs
+  build-depends: my-app
+
+test-suite my-tests
+  main-is: Main.hs
+  build-depends: my-app
+```
+
 ## Imports
 
 ```haskell
@@ -80,6 +156,71 @@ case items ^? ix 3 of
   Nothing -> handleMissing
 ```
 
+## Data Types: Evidence Types at API Boundaries
+
+```haskell
+-- FINE for internal helpers and predicates
+isPrime :: Int -> Bool
+
+-- BETTER at API boundaries where callers could misinterpret:
+-- evidence type ensures the value has been validated
+newtype Prime = Prime Int
+prime :: Int -> Maybe Prime
+```
+
+## Data Types: Quantities (Never Float)
+
+```haskell
+-- BAD: floating-point money
+data Invoice = Invoice { total :: Double }
+
+-- GOOD: Int64 minimal units
+newtype Amount = Amount { unAmount :: Int64 }
+  deriving (Show, Eq, Ord)
+
+addAmount :: Amount -> Amount -> Amount
+addAmount (Amount a) (Amount b) = Amount (a + b)
+```
+
+## Data Types: Compact vs Non-Compact Strictness
+
+```haskell
+-- Compact types: evaluate eagerly (strict folds, bang patterns)
+data Point = Point
+  { pointX :: {-# UNPACK #-} !Double
+  , pointY :: {-# UNPACK #-} !Double
+  }
+
+-- Non-compact types: evaluate lazily (contains list)
+data Result = Result
+  { resultItems :: [Item]    -- no bang — lazy accumulation avoids quadratic
+  , resultCount :: !Int      -- compact field — strict
+  }
+```
+
+## Safety: Ad-Hoc Polymorphism Caution
+
+```haskell
+-- BAD: polymorphic length silently changes after refactoring
+--   before: settingAllowList :: [Text]  → length = list length
+--   after:  settingAllowList :: Set Text → length = ???
+countAllowed = length (settingAllowList settings)
+
+-- GOOD: monomorphic, explicit about the container
+countAllowed = GHC.OldList.length (Set.toList (settingAllowList settings))
+-- or better: Set.size (settingAllowList settings)
+```
+
+## Safety: No foldl
+
+```haskell
+-- BAD: lazy foldl causes thunk buildup / space leak
+total = foldl (+) 0 items
+
+-- GOOD: strict foldl'
+total = foldl' (+) 0 items
+```
+
 ## Safety: Resource Management
 
 ```haskell
@@ -103,13 +244,70 @@ runApp :: ExceptT AppError (ReaderT Config IO) ()
 runApp :: RIO App ()
 
 -- Detectable failures: return Maybe/Either
--- The caller can inspect and handle these
 lookupUser :: UserId -> RIO env (Maybe User)
 parseConfig :: Text -> Either ConfigError Config
 
--- IO failures (disk, network, etc.): let them propagate as exceptions
--- Only catch at the business logic level when recovery is meaningful
+-- IO failures: let them propagate as exceptions
 loadConfig :: FilePath -> RIO env Config
+```
+
+## Error Handling: Custom Exception Types with Context
+
+```haskell
+-- BAD: bare string exception
+throwIO (userError "Connection refused")
+
+-- GOOD: custom exception with context fields
+data ConnectException = ConnectException
+  { ceHost :: !HostName
+  , cePort :: !PortNumber
+  , ceCause :: !IOException
+  }
+  deriving (Show, Typeable)
+
+instance Exception ConnectException where
+  displayException ConnectException{..} =
+    "Failed to connect to " <> ceHost <> ":" <> show cePort
+      <> ": " <> displayException ceCause
+
+-- Catch and wrap low-level exceptions
+connectTo host port =
+  catch (rawConnect host port) $ \(e :: IOException) ->
+    throwIO (ConnectException host port e)
+```
+
+## Error Handling: orDie Combinator
+
+```haskell
+-- BAD: nested case matching
+case lookupHost name of
+  Nothing -> Left "Host not found"
+  Just host -> case lookupPort host of
+    Nothing -> Left "Port not found"
+    Just port -> Right (host, port)
+
+-- GOOD: orDie flattens with Either do-notation
+orDie :: Maybe a -> e -> Either e a
+orDie (Just a) _ = Right a
+orDie Nothing  e = Left e
+
+resolve name = do
+  host <- lookupHost name `orDie` "Host not found"
+  port <- lookupPort host `orDie` "Port not found"
+  pure (host, port)
+```
+
+## Error Handling: Make Illegal States Unrepresentable
+
+```haskell
+-- BAD: handle invalidity downstream
+processItems :: [a] -> Maybe Result
+processItems [] = Nothing
+processItems xs = Just (compute xs)
+
+-- GOOD: push validity upstream via types
+processItems :: NonEmpty a -> Result
+processItems xs = compute xs
 ```
 
 ## Strings & Logging
@@ -154,106 +352,6 @@ testProperty "reverse is involution" $
   \(xs :: [Int]) -> reverse (reverse xs) === xs
 ```
 
-## Testing: Validity Instances
-
-```haskell
--- BAD: manual Arbitrary, no validity checking
-instance Arbitrary User where
-  arbitrary = User <$> arbitrary <*> arbitrary
-
--- GOOD: Validity + GenValid
-data User = User
-  { userName :: !Text
-  , userAge  :: !Int
-  }
-  deriving (Show, Eq, Generic)
-
-instance Validity User where
-  validate u = mconcat
-    [ declare "name is not empty" $ not $ T.null (userName u)
-    , declare "age is non-negative" $ userAge u >= 0
-    ]
-
-instance GenValid User
--- Free generator + shrinking that respects validity constraints
-```
-
-## Testing: forAllValid
-
-```haskell
--- BAD: raw arbitrary
-testProperty "roundtrip" $
-  \(user :: User) -> decode (encode user) === Just user
-
--- GOOD: validity-aware generation
-testProperty "roundtrip" $
-  forAllValid $ \(user :: User) ->
-    decode (encode user) === Just user
-```
-
-## Testing: producesValid
-
-```haskell
--- GOOD: assert function output is always valid
-testProperty "normalize produces valid users" $
-  producesValid (normalizeUser :: User -> User)
-
-testProperty "merge produces valid stores" $
-  producesValid2 (mergeStores :: Store -> Store -> Store)
-```
-
-## Testing: Structural GenValid (Simple Types)
-
-```haskell
--- GOOD: no extra constraints, use structural helpers
-instance GenValid ChangedFlag where
-  genValid = genValidStructurallyWithoutExtraChecking
-  shrinkValid = shrinkValidStructurallyWithoutExtraFiltering
-```
-
-## Testing: Custom GenValid (Complex Invariants)
-
-Pattern from mergeful — types with disjoint sets or other constraints:
-
-```haskell
-instance GenValid (ClientStore ci si a) where
-  genValid =
-    (`suchThat` isValid) $ do
-      ids <- genValid
-      (s1, s2) <- splitSet ids
-      clientStoreSynced <- mapWithIds s1
-      clientStoreDeleted <- pure s2
-      clientStoreAdded <- genValid
-      pure ClientStore {..}
-  shrinkValid = shrinkValidStructurally
-
--- Helpers
-splitSet :: (Ord i) => Set i -> Gen (Set i, Set i)
-splitSet s =
-  if S.null s
-    then pure (S.empty, S.empty)
-    else do
-      a <- elements $ S.toList s
-      pure $ S.split a s
-
-mapWithIds :: (Ord i, GenValid a) => Set i -> Gen (Map i a)
-mapWithIds = fmap M.fromList . traverse (\i -> (,) i <$> genValid) . S.toList
-```
-
-## Testing: Nested forAllValid
-
-```haskell
--- GOOD: multiple constrained generators
-testProperty "sync handles modifications" $
-  forAllValid $ \item ->
-    forAllValid $ \serverTime ->
-      forAllShrink
-        (genValid `suchThat` (> serverTime))
-        (filter (> serverTime) . shrinkValid)
-        $ \serverTime' ->
-          syncItem item serverTime serverTime' `shouldSatisfy` isValid
-```
-
 ## Style: let-in over where
 
 ```haskell
@@ -273,22 +371,80 @@ processUsers users =
     mapM processGroup grouped
 ```
 
-## Style: Point-Free
+## Style: Point-Free (When It Helps)
 
 ```haskell
 -- BAD: unnecessary lambda/variable binding
 getUserNames :: [User] -> [Text]
 getUserNames users = map (\u -> userName u) users
 
--- GOOD: point-free
+-- GOOD: point-free improves clarity here
 getUserNames :: [User] -> [Text]
 getUserNames = map userName
 
+-- BAD: point-free obscures intent
+check :: Eq a => a -> a -> Bool
+check = ((==) <*>)
+
+-- GOOD: named arguments when composition is unclear
+check :: Eq a => (a -> a) -> a -> Bool
+check f x = x == f x
+```
+
+## Style: Record Assembly with do + RecordWildCards
+
+```haskell
+-- BAD: Applicative operators — silent breakage when fields reorder
+mkUser :: Parser User
+mkUser = User <$> nameField <*> ageField <*> emailField
+
+-- GOOD: do notation with named fields — clear errors on field changes
+mkUser :: Parser User
+mkUser = do
+  userName  <- nameField
+  userAge   <- ageField
+  userEmail <- emailField
+  pure User{..}
+```
+
+## Algebraic Design: Semigroup/Monoid from Applicative
+
+```haskell
+-- BAD: manual instance
+instance Semigroup (Handler a) where
+  Handler f <> Handler g = Handler (\x -> f x <> g x)
+
+instance Monoid (Handler a) where
+  mempty = Handler (const mempty)
+
+-- GOOD: derive via Ap
+newtype Handler a = Handler (Event -> a)
+  deriving (Functor, Applicative)
+  deriving (Semigroup, Monoid) via (Ap Handler a)
+
+-- Use foldMap instead of mapM + combine
 -- BAD
-processAll :: [Item] -> RIO env [Result]
-processAll items = mapM processItem items
+results <- mapM process inputs
+pure (mconcat results)
 
 -- GOOD
-processAll :: [Item] -> RIO env [Result]
-processAll = mapM processItem
+foldMap process inputs
 ```
+
+## Algebraic Design: Verify Laws
+
+```haskell
+-- Verify monoid laws for custom instances via property tests
+testProperty "associativity" $
+  \(a, b, c :: MyType) ->
+    (a <> b) <> c === a <> (b <> c)
+
+testProperty "left identity" $
+  \(a :: MyType) ->
+    mempty <> a === a
+
+testProperty "right identity" $
+  \(a :: MyType) ->
+    a <> mempty === a
+```
+

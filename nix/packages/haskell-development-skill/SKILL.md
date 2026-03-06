@@ -3,13 +3,26 @@ name: haskell-development-skill
 description: >
   Haskell development conventions based on RIO. Use when working on
   Haskell source files (.hs, .cabal, .lhs). Covers imports, effect
-  patterns, error handling, strictness, testing with genvalidity, and tooling.
+  patterns, error handling, strictness, testing, and tooling.
 ---
 
 # Haskell Development Conventions (RIO-based)
 
+This skill applies to Haskell projects using the RIO prelude. Check for
+`rio` in `build-depends` before applying these conventions.
+
 All examples in `references/examples.md`. Each section below states the rule;
 consult examples for BAD/GOOD code pairs.
+
+## Module Organization
+
+- Organize modules **vertically by domain** (e.g., `Syntax`, `Parsing`, `Infer`,
+  `Evaluation`, `Pretty`) — never horizontally by language feature
+- Never create `Types.hs`, `Constants.hs`, or `Utils.hs` modules
+- Every module gets an **explicit export list** — no bare `module Foo where`
+- Each module should be independently extractable into its own package
+- Use a single `library` stanza in `.cabal` — executables, tests, and benchmarks
+  are thin wrappers that import from the library
 
 ## Imports
 
@@ -30,20 +43,38 @@ consult examples for BAD/GOOD code pairs.
 - Strict fields by default: prefix every field with `!`
 - One `App` record per application holding all capabilities
 - Use `{-# UNPACK #-}` for simple fields (Int, Word, etc.)
+- **Smart constructors**: hide data constructors for API-boundary types, expose
+  `mk*` functions and field accessors instead
+- Provide a `.Internal` module for power users who need raw constructors
+- **Compact vs non-compact strictness**: primitives (`Bool`, `Int`, `Text`, `Double`)
+  and records of compact fields are compact — evaluate eagerly. Types containing
+  lists or other recursive structures are non-compact — evaluate lazily
+- **Consider evidence types** at API boundaries: when a `Bool` return could be
+  misinterpreted, use a meaningful sum type or smart constructor instead
+- **Never use Float/Double for quantities** (money, counts, scores): use `Int64`
+  representing minimal units
 
 ## Safety
 
 - No partial functions: never use `head`, `tail`, `fromJust`, `read`, `!!`
   — they live in `RIO.Partial` for a reason
+- **No `foldl`**: always use `foldl'` (strict left fold) — lazy `foldl` causes
+  space leaks
 - No lazy I/O: use conduit for streaming
 - Always use `bracket`/`finally` for resource management
+- **Beware ad-hoc polymorphism after refactoring**: prefer monomorphic functions
+  where type dispatch could silently change behavior (e.g., `length` on a
+  refactored container type)
 
 ## Error Handling
 
 - `Maybe`/`Either` for expected failures the caller must handle
 - `throwIO` for exceptional/bug cases
 - No `ExceptT` in application-level monad stacks
-- Define an app-wide exception type with `Exception` instance
+- Define **custom exception types with context fields** — never throw bare strings
+- Catch low-level exceptions and re-throw wrapped with high-level context
+- Define `orDie` combinators for `Maybe`-to-`Either` conversion to reduce boilerplate
+- Make illegal states unrepresentable: prefer `NonEmpty a -> a` over `[a] -> Maybe a`
 
 ## Strings & Logging
 
@@ -67,12 +98,6 @@ consult examples for BAD/GOOD code pairs.
 
 - **Framework**: Tasty + tasty-hunit + tasty-quickcheck
 - **Property testing**: QuickCheck via tasty-quickcheck
-- **Validity testing**: genvalidity for domain types
-  - Define `Validity` instances with `validate` and `declare`
-  - Derive `GenValid` for free generators + validity-respecting shrinking
-  - Use `forAllValid` instead of raw `forAll arbitrary`
-  - Use `producesValid` / `producesValid2` to assert functions preserve validity
-  - See mergeful/mergeless projects for real-world patterns
 
 ## Tooling
 
@@ -84,6 +109,7 @@ consult examples for BAD/GOOD code pairs.
 ```
 -Wall -Wcompat -Widentities -Wincomplete-record-updates
 -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints
+-Werror=missing-fields
 ```
 
 ## Recommended Extensions
@@ -94,9 +120,20 @@ consult examples for BAD/GOOD code pairs.
 `FlexibleInstances`, `MultiParamTypeClasses`, `TupleSections`,
 `TypeFamilies`, `RecordWildCards`, `NamedFieldPuns`
 
+## Algebraic Design
+
+- Derive `Semigroup`/`Monoid` from `Applicative` when applicable:
+  `(<>) = liftA2 (<>)`, `mempty = pure mempty`, or `deriving via (Ap F a)`
+- Use `foldMap` over `mapM` + manual combining
+- Verify laws (associativity, identity) for custom instances — equational
+  reasoning catches bugs that tests miss
+
 ## Style
 
 - Prefer `let ... in` over `where`; `where` acceptable only for small functions
 - `let` and `in` keywords live on their own lines
 - `where` keyword lives on its own line
-- Prefer point-free style
+- Point-free when it improves clarity; named arguments when composition would
+  obscure intent (avoid `((==) <*>)` style)
+- Use `do` notation with `RecordWildCards` for record assembly instead of
+  `<$>`/`<*>` chains (clearer error messages when fields change)
