@@ -6,8 +6,8 @@ module CCS.Project (
   normalizeRemoteUrl,
 ) where
 
+import Data.Text qualified as T
 import RIO
-import RIO.Text qualified as T
 import System.FilePath (makeRelative, takeFileName)
 import System.Process (readProcessWithExitCode)
 
@@ -60,27 +60,25 @@ gitProject gitRoot remoteUrl cwd =
 -- Handles SSH (git@host:path), ssh:// scheme, and HTTPS variants.
 normalizeRemoteUrl :: Text -> Text
 normalizeRemoteUrl url
-  | "git@" `T.isPrefixOf` url = normalizeScp url
-  | "ssh://" `T.isPrefixOf` url = normalizeSchemeUrl 6 url
-  | "https://" `T.isPrefixOf` url = normalizeSchemeUrl 8 url
-  | "http://" `T.isPrefixOf` url = normalizeSchemeUrl 7 url
+  | Just rest <- T.stripPrefix "git@" url = normalizeScp rest
+  | Just rest <- T.stripPrefix "ssh://" url = normalizeAfterScheme rest
+  | Just rest <- T.stripPrefix "https://" url = normalizeAfterScheme rest
+  | Just rest <- T.stripPrefix "http://" url = normalizeAfterScheme rest
   | otherwise = stripDotGit url
 
--- SCP-style: git@host:path.git → host/path
+-- SCP-style: host:path.git → host/path (prefix already stripped)
 normalizeScp :: Text -> Text
-normalizeScp url =
+normalizeScp afterAt =
   let
-    afterAt = T.drop 4 url
     (host, colonPath) = T.breakOn ":" afterAt
     path = T.drop 1 colonPath
   in
     host <> "/" <> stripDotGit path
 
--- Scheme-style: scheme://[user@]host/path.git → host/path
-normalizeSchemeUrl :: Int -> Text -> Text
-normalizeSchemeUrl schemeLen url =
+-- Scheme-style: [user@]host/path.git → host/path (scheme already stripped)
+normalizeAfterScheme :: Text -> Text
+normalizeAfterScheme afterScheme =
   let
-    afterScheme = T.drop schemeLen url
     afterUser = case T.breakOn "@" afterScheme of
       (before, rest)
         | not (T.null rest) && not ("/" `T.isInfixOf` before) ->

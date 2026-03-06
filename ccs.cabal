@@ -48,6 +48,7 @@ library
     , optparse-applicative
     , process
     , rio
+    , text
     , time
 
 executable ccs
