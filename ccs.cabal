@@ -71,9 +71,11 @@ test-suite ccs-test
   ghc-options:      -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >= 4.17 && < 5
+    , QuickCheck
     , aeson
     , aeson-qq
     , ccs
     , rio
     , tasty
     , tasty-hunit
+    , tasty-quickcheck

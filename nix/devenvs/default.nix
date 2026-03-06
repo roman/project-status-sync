@@ -11,6 +11,7 @@ let
     hp.optparse-applicative
     hp.tasty
     hp.tasty-hunit
+    hp.tasty-quickcheck
     hp.text
     hp.time
   ];

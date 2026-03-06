@@ -1,6 +1,12 @@
 module CCS.Filter (
   filterTranscript,
   filterTranscriptFile,
+  SessionEntry (..),
+  MessageContent (..),
+  ContentBlock (..),
+  formatEntry,
+  formatContent,
+  formatBlock,
 ) where
 
 import RIO

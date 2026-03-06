@@ -577,8 +577,9 @@ let-in over where.
 
 ### Testing Conventions
 
-Tasty + tasty-quickcheck + genvalidity. Validity/GenValid instances,
-forAllValid, producesValid combinators. Patterns from mergeful/mergeless.
+Tasty + tasty-hunit + tasty-quickcheck. Property tests for pure functions
+with clear invariants (idempotence, format-independence, round-trips).
+Targeted generators over arbitrary ones to exercise real code paths.
 
 ### Tooling
 

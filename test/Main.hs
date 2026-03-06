@@ -1,17 +1,33 @@
 {-# LANGUAGE QuasiQuotes #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Main (main) where
 
 import RIO
 import RIO.ByteString.Lazy qualified as LBS
+import RIO.Text qualified as T
 
 import Data.Aeson (Value, decode, encode)
 import Data.Aeson.QQ (aesonQQ)
+import Test.QuickCheck
 import Test.Tasty
 import Test.Tasty.HUnit
+import Test.Tasty.QuickCheck (testProperty)
 
-import CCS.Filter (filterTranscript)
-import CCS.Project (normalizeRemoteUrl)
+import CCS.Filter (
+  ContentBlock (..),
+  MessageContent (..),
+  SessionEntry (..),
+  filterTranscript,
+  formatBlock,
+  formatContent,
+  formatEntry,
+ )
+import CCS.Project (
+  deriveName,
+  normalizeRemoteUrl,
+  stripDotGit,
+ )
 import CCS.Signal (SignalPayload (..))
 
 main :: IO ()
@@ -24,6 +40,7 @@ tests =
     [ signalTests
     , projectTests
     , filterTests
+    , propertyTests
     ]
 
 signalTests :: TestTree
@@ -160,3 +177,206 @@ filterTests =
         $ filterTranscript ""
         @?= ""
     ]
+
+-- ---------------------------------------------------------------------------
+-- QuickCheck generators
+-- ---------------------------------------------------------------------------
+
+data UrlFormat = ScpStyle | SshScheme | HttpsScheme | HttpScheme
+  deriving stock (Show, Eq, Enum, Bounded)
+
+instance Arbitrary UrlFormat where
+  arbitrary = elements [minBound .. maxBound]
+
+genHostSegment :: Gen String
+genHostSegment = resize 10 $ listOf1 (elements $ ['a' .. 'z'] ++ ['0' .. '9'])
+
+genHost :: Gen Text
+genHost = do
+  segs <- resize 3 $ listOf1 genHostSegment
+  pure $ T.intercalate "." (map T.pack segs)
+
+genPathSegment :: Gen String
+genPathSegment = resize 10 $ listOf1 (elements $ ['a' .. 'z'] ++ ['A' .. 'Z'] ++ ['0' .. '9'] ++ "-_")
+
+genRepoPath :: Gen Text
+genRepoPath = do
+  segs <- resize 3 $ listOf1 genPathSegment
+  pure $ T.intercalate "/" (map T.pack segs)
+
+data GitUrl = GitUrl
+  { guHost :: !Text
+  , guPath :: !Text
+  , guDotGit :: !Bool
+  , guFormat :: !UrlFormat
+  }
+  deriving stock (Show)
+
+instance Arbitrary GitUrl where
+  arbitrary = do
+    guHost <- genHost
+    guPath <- genRepoPath
+    guDotGit <- arbitrary
+    guFormat <- arbitrary
+    pure GitUrl{..}
+  shrink GitUrl{..} =
+    [GitUrl{guDotGit = d, ..} | d <- shrink guDotGit]
+      ++ [GitUrl{guFormat = f, ..} | f <- shrink guFormat]
+
+renderGitUrl :: GitUrl -> Text
+renderGitUrl GitUrl{..} =
+  let
+    suffix = if guDotGit then ".git" else ""
+    p = guPath <> suffix
+  in
+    case guFormat of
+      ScpStyle -> "git@" <> guHost <> ":" <> p
+      SshScheme -> "ssh://git@" <> guHost <> "/" <> p
+      HttpsScheme -> "https://" <> guHost <> "/" <> p
+      HttpScheme -> "http://" <> guHost <> "/" <> p
+
+expectedNormalized :: GitUrl -> Text
+expectedNormalized GitUrl{guHost, guPath} = guHost <> "/" <> guPath
+
+genNonEmptyText :: Gen Text
+genNonEmptyText = T.pack <$> listOf1 (elements $ ['a' .. 'z'] ++ ['0' .. '9'])
+
+instance Arbitrary SignalPayload where
+  arbitrary = do
+    signalTranscriptPath <- genNonEmptyText
+    signalCwd <- genNonEmptyText
+    pure SignalPayload{..}
+
+genRole :: Gen Text
+genRole = elements ["user", "assistant"]
+
+instance Arbitrary ContentBlock where
+  arbitrary =
+    oneof
+      [ TextBlock <$> genNonEmptyText
+      , ThinkingBlock <$> genNonEmptyText
+      ]
+
+instance Arbitrary MessageContent where
+  arbitrary =
+    oneof
+      [ ContentString <$> genNonEmptyText
+      , ContentArray <$> listOf arbitrary
+      ]
+
+instance Arbitrary SessionEntry where
+  arbitrary = do
+    entryType <- genRole
+    entryContent <- arbitrary
+    pure SessionEntry{..}
+
+-- ---------------------------------------------------------------------------
+-- Property tests
+-- ---------------------------------------------------------------------------
+
+propertyTests :: TestTree
+propertyTests =
+  testGroup
+    "Properties"
+    [ testGroup "normalizeRemoteUrl" normalizeRemoteUrlProps
+    , testGroup "stripDotGit" stripDotGitProps
+    , testGroup "deriveName" deriveNameProps
+    , testGroup "Signal" signalProps
+    , testGroup "Filter" filterProps
+    ]
+
+normalizeRemoteUrlProps :: [TestTree]
+normalizeRemoteUrlProps =
+  [ testProperty "idempotent" $ \gu ->
+      let
+        url = renderGitUrl gu
+        normalized = normalizeRemoteUrl url
+      in
+        normalizeRemoteUrl normalized === normalized
+  , testProperty "format-independent" $ \gu ->
+      let
+        expected = expectedNormalized gu
+        url = renderGitUrl gu
+      in
+        normalizeRemoteUrl url === expected
+  ]
+
+genWithOptionalDotGit :: Gen Text
+genWithOptionalDotGit = do
+  base <- genNonEmptyText
+  suffix <- elements ["", ".git"]
+  pure (base <> suffix)
+
+stripDotGitProps :: [TestTree]
+stripDotGitProps =
+  [ testProperty "idempotent on single .git suffix"
+      $ forAll genWithOptionalDotGit
+      $ \txt ->
+        stripDotGit (stripDotGit txt) === stripDotGit txt
+  , testProperty "strips .git suffix"
+      $ forAll genNonEmptyText
+      $ \base ->
+        stripDotGit (base <> ".git") === base
+  , testProperty "preserves input without .git suffix"
+      $ forAll genNonEmptyText
+      $ \txt ->
+        stripDotGit txt === txt
+  ]
+
+deriveNameProps :: [TestTree]
+deriveNameProps =
+  [ testProperty "non-empty for non-empty input"
+      $ forAll genNonEmptyText
+      $ \t ->
+        not $ T.null (deriveName t)
+  , testProperty "output never contains slash"
+      $ forAll genNonEmptyText
+      $ \t ->
+        not $ T.isInfixOf "/" (deriveName (t <> "/" <> t))
+  , testProperty "output is suffix of input"
+      $ forAll genNonEmptyText
+      $ \t ->
+        T.isSuffixOf (deriveName t) t
+  ]
+
+signalProps :: [TestTree]
+signalProps =
+  [ testProperty "JSON round-trip" $ \payload ->
+      decode (encode (payload :: SignalPayload)) === Just payload
+  ]
+
+filterProps :: [TestTree]
+filterProps =
+  [ testProperty "formatEntry Nothing for non-user/assistant"
+      $ forAll genNonEmptyText
+      $ \role ->
+        role /= "user" && role /= "assistant"
+          ==> isNothing (formatEntry SessionEntry{entryType = role, entryContent = ContentString "x"})
+  , testProperty "formatEntry Just for user/assistant with content"
+      $ forAll genRole
+      $ \role ->
+        isJust (formatEntry SessionEntry{entryType = role, entryContent = ContentString "hello"})
+  , testProperty "formatContent non-empty string produces non-empty list"
+      $ forAll genRole
+      $ \role ->
+        forAll genNonEmptyText $ \txt ->
+          not . null $ formatContent role (ContentString txt)
+  , testProperty "formatBlock text preserves content"
+      $ forAll genRole
+      $ \role ->
+        forAll genNonEmptyText $ \txt ->
+          case formatBlock role (TextBlock txt) of
+            Just result -> T.isInfixOf txt result
+            Nothing -> False
+  , testProperty "formatBlock thinking always labeled THINKING"
+      $ forAll genNonEmptyText
+      $ \txt ->
+        case formatBlock "assistant" (ThinkingBlock txt) of
+          Just result -> T.isPrefixOf "THINKING:" result
+          Nothing -> False
+  , testProperty "filterTranscript never crashes on arbitrary bytes" $ \bs ->
+      let
+        result = filterTranscript (LBS.pack bs)
+      in
+        T.length result `seq` True
+  ]

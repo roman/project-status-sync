@@ -4,6 +4,8 @@ module CCS.Project (
   Project (..),
   identifyProject,
   normalizeRemoteUrl,
+  stripDotGit,
+  deriveName,
 ) where
 
 import RIO
