@@ -8,7 +8,11 @@ import RIO
 
 import Data.Aeson (FromJSON (..), ToJSON (..), object, withObject, (.:), (.=))
 import Data.Aeson qualified as Aeson
+import RIO.ByteString qualified as BS
 import RIO.ByteString.Lazy qualified as LBS
+import RIO.Directory (renameFile)
+import RIO.FilePath (takeDirectory)
+import System.IO (openBinaryTempFileWithDefaultPermissions)
 
 data SignalPayload = SignalPayload
   { signalTranscriptPath :: !Text
@@ -32,7 +36,12 @@ instance FromJSON SignalPayload where
       .: "cwd"
 
 readSignal :: MonadIO m => FilePath -> m (Either String SignalPayload)
-readSignal path = liftIO $ Aeson.eitherDecode <$> LBS.readFile path
+readSignal path = liftIO $ Aeson.eitherDecodeStrict' <$> BS.readFile path
 
 writeSignal :: MonadIO m => FilePath -> SignalPayload -> m ()
-writeSignal path = liftIO . LBS.writeFile path . Aeson.encode
+writeSignal path payload = liftIO $ do
+  let
+    dir = takeDirectory path
+  (tmpPath, h) <- openBinaryTempFileWithDefaultPermissions dir "signal.tmp"
+  LBS.hPut h (Aeson.encode payload) `finally` hClose h
+  renameFile tmpPath path
