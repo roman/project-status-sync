@@ -27,8 +27,11 @@ data Project = Project
 -- | Identify project from working directory.
 -- Uses git remote + relative subpath for git repos,
 -- falls back to directory name for non-git directories.
-identifyProject :: MonadIO m => FilePath -> m Project
-identifyProject cwd = liftIO $ do
+identifyProject
+  :: (HasLogFunc env, MonadIO m, MonadReader env m)
+  => FilePath
+  -> m Project
+identifyProject cwd = do
   mGitRoot <- gitCommand cwd ["rev-parse", "--show-toplevel"]
   case mGitRoot of
     Nothing -> pure $ directoryFallback cwd
@@ -117,10 +120,21 @@ directoryFallback cwd =
       , projectPath = cwd
       }
 
-gitCommand :: FilePath -> [String] -> IO (Maybe Text)
+gitCommand
+  :: (HasLogFunc env, MonadIO m, MonadReader env m)
+  => FilePath
+  -> [String]
+  -> m (Maybe Text)
 gitCommand dir args = do
-  (exitCode, stdout, _) <-
-    readProcessWithExitCode "git" (["-C", dir] ++ args) ""
-  pure $ case exitCode of
-    ExitSuccess -> Just (T.strip $ T.pack stdout)
-    ExitFailure _ -> Nothing
+  (exitCode, stdout, errout) <-
+    liftIO $ readProcessWithExitCode "git" (["-C", dir] ++ args) ""
+  case exitCode of
+    ExitSuccess -> pure $ Just (T.strip $ T.pack stdout)
+    ExitFailure _ -> do
+      unless (null errout)
+        $ logWarn
+        $ "git "
+        <> displayShow args
+        <> " failed: "
+        <> fromString errout
+      pure Nothing

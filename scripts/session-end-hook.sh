@@ -14,6 +14,7 @@ TRANSCRIPT_PATH=$(printf '%s' "$INPUT" | jq -r '.transcript_path')
 CWD=$(printf '%s' "$INPUT" | jq -r '.cwd')
 
 if [ "$SESSION_ID" = "null" ] || [ "$TRANSCRIPT_PATH" = "null" ] || [ "$CWD" = "null" ]; then
+  echo "ccs: missing required field in hook payload" >&2
   exit 0
 fi
 
