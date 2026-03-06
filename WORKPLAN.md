@@ -580,6 +580,7 @@ forAllValid, producesValid combinators. Patterns from mergeful/mergeless.
 
 - Fourmolu (formatter) — git pre-commit hook
 - HLint (linter) — git pre-commit hook
+- cabal-test — git pre-commit hook (devenv module at `nix/modules/devenv/cabal-test.nix`)
 
 See:
 - `notes/handoffs/2026-03-04-haskell-development-skill.md`

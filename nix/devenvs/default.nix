@@ -19,6 +19,7 @@ in
     inputs.nixDir.devenvModules.nixdir-skill
     inputs.self.devenvModules.session-tracking
     inputs.self.devenvModules.haskell-development-skill
+    inputs.self.devenvModules.cabal-test
   ];
 
   # _module.args = { inherit inputs; };
@@ -34,6 +35,8 @@ in
     enable = true;
     package = pkgs.nixfmt-rfc-style;
   };
+
+  git-hooks.hooks.cabal-test.enable = true;
 
   claude.code.plugins.nixDir.enable = true;
   claude.code.plugins.haskell-development.enable = true;
