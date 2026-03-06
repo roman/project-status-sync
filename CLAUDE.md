@@ -2,12 +2,15 @@
 
 ## Before You Start (MANDATORY)
 
+**Load the `haskell-development-skill`** via the Skill tool before writing any Haskell code.
+
 **Read [`WORKPLAN.md`](WORKPLAN.md) FIRST.** Do not write any code until you have:
 
-1. Read WORKPLAN.md completely
-2. Identified the current phase and its status
-3. Found the most recent handoff notes
-4. Determined what work to pick up next
+1. Loaded the `haskell-development-skill`
+2. Read WORKPLAN.md completely
+3. Identified the current phase and its status
+4. Found the most recent handoff notes
+5. Determined what work to pick up next
 
 WORKPLAN.md is the single source of truth for:
 - Current phase and status
