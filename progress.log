@@ -35,3 +35,4 @@
 2026-03-05 19:18 [8fbc4425] — Fix: strict IO and atomic writes for signal files
 2026-03-05 19:23 [8fbc4425] — Fix: use Paths_ccs for version, remove useless test, clean cabal deps
 2026-03-05 19:30 [8fbc4425] — Fix: add RIO logging to gitCommand, stderr warning in shell hook
+2026-03-06 00:00 [d01f09ce] — Phase 2a.1: pre-filter as Haskell library (CCS.Filter module, 6 tests, ports jsonl-to-summary-input.sh)

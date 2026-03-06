@@ -35,6 +35,7 @@ library
   default-language: GHC2021
   exposed-modules:
     CCS
+    CCS.Filter
     CCS.Project
     CCS.Signal
   other-modules:    Paths_ccs
