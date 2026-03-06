@@ -39,3 +39,4 @@
 2026-03-05 21:00 [90973939] — Infra: add cabal-test pre-commit hook via devenv git-hooks module
 2026-03-06 20:54 [c8a4afbb] — Phase 2a.1: extract thinking blocks, fix test data to match real JSONL format, add aeson-qq
 2026-03-06 21:08 [c8a4afbb] — Codify review learnings: Haskell skill (parse-boundary, design omissions, quasi-quoters), project --impure warning
+2026-03-06 00:00 [c8a4afbb] — docs: add code-critic review gate to CLAUDE.md (applies to all sessions, not just ralph)

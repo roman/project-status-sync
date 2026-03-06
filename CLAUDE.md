@@ -32,14 +32,25 @@ Session handoff notes live in [`notes/handoffs/`](notes/handoffs/). WORKPLAN.md 
 
 This is not optional. A commit without documentation updates is incomplete.
 
+## Code Review Before Every Commit (NON-NEGOTIABLE)
+
+After implementation and before committing:
+
+1. **Run `cabal test`** — do not proceed if tests fail
+2. **Spawn `code-critic` agent** (via Task tool) to review your changes
+3. Address blocker and major severity findings. Ignore stylistic nitpicks.
+4. Do not loop more than twice — ship it after two rounds of fixes.
+
 ```bash
 # Correct workflow:
 1. Make code changes
-2. Update WORKPLAN.md (progress, status, handoff notes)
-3. Append to progress.log
-4. Create/update handoff in notes/handoffs/
-5. Stage ALL files together
-6. Commit with descriptive message
+2. Run `cabal test` — do not proceed if tests fail
+3. Spawn code-critic agent to review changes (address blocker/major issues, max 2 rounds)
+4. Update WORKPLAN.md (progress, status, handoff notes)
+5. Append to progress.log
+6. Create/update handoff in notes/handoffs/
+7. Stage ALL files together
+8. Commit with descriptive message
 
 # WRONG - never do this:
 git add src/
