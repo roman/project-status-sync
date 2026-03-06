@@ -4,6 +4,7 @@ inputs:
 let
   haskellDeps = hp: [
     hp.aeson
+    hp.aeson-qq
     hp.bytestring
     hp.directory
     hp.filepath

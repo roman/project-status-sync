@@ -319,8 +319,8 @@ See:
 
 - Port `scripts/jsonl-to-summary-input.sh` to Haskell
 - Create `CCS.Filter` module
-- Parse JSONL, extract user/assistant text blocks
-- Output plain text with role labels
+- Parse JSONL, extract user/assistant text and thinking blocks
+- Output plain text with role labels (THINKING: for reasoning)
 
 #### 2a.2: CLI scaffolding
 
@@ -349,7 +349,9 @@ See:
 - [ ] 2a.3: record-event tool
 - [ ] 2a.4: Aggregation job skeleton
 
-See: `notes/handoffs/2026-03-06-pre-filter-library.md`
+See:
+- `notes/handoffs/2026-03-06-pre-filter-library.md`
+- `notes/handoffs/2026-03-06-filter-thinking-blocks.md`
 
 ---
 

@@ -1,9 +1,12 @@
+{-# LANGUAGE QuasiQuotes #-}
+
 module Main (main) where
 
 import RIO
 import RIO.ByteString.Lazy qualified as LBS
 
-import Data.Aeson (decode, encode)
+import Data.Aeson (Value, decode, encode)
+import Data.Aeson.QQ (aesonQQ)
 import Test.Tasty
 import Test.Tasty.HUnit
 
@@ -84,6 +87,10 @@ projectTests =
         ]
     ]
 
+-- | Encode a JSON Value to the JSONL ByteString that filterTranscript expects.
+jsonl :: [Value] -> LBS.ByteString
+jsonl = LBS.intercalate "\n" . map encode
+
 filterTests :: TestTree
 filterTests =
   testGroup
@@ -91,39 +98,62 @@ filterTests =
     [ testCase "extracts user and assistant string content" $ do
         let
           input =
-            LBS.intercalate
-              "\n"
-              [ "{\"type\":\"user\",\"message\":{\"content\":\"hello world\"}}"
-              , "{\"type\":\"assistant\",\"message\":{\"content\":\"hi there\"}}"
+            jsonl
+              [ [aesonQQ| { "type": "user", "message": { "content": "hello world" } } |]
+              , [aesonQQ| { "type": "assistant", "message": { "content": "hi there" } } |]
               ]
         filterTranscript input @?= "USER:\nhello world\n\nASSISTANT:\nhi there\n"
     , testCase "extracts text from array content" $ do
         let
           input =
-            "{\"type\":\"user\",\"message\":{\"content\":[{\"type\":\"text\",\"text\":\"first\"},{\"type\":\"text\",\"text\":\"second\"}]}}"
-        filterTranscript input @?= "USER:\nfirst\nsecond\n"
-    , testCase "skips non-text blocks in array" $ do
+            jsonl
+              [ [aesonQQ| {
+                    "type": "user",
+                    "message": { "content": [
+                      { "type": "text", "text": "first" },
+                      { "type": "text", "text": "second" }
+                    ] }
+                  } |]
+              ]
+        filterTranscript input @?= "USER:\nfirst\n\nUSER:\nsecond\n"
+    , testCase "extracts thinking block content" $ do
         let
           input =
-            "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"tool_use\",\"name\":\"Read\"},{\"type\":\"text\",\"text\":\"done\"}]}}"
-        filterTranscript input @?= "ASSISTANT:\ndone\n"
+            jsonl
+              [ [aesonQQ| {
+                    "type": "assistant",
+                    "message": { "content": [
+                      { "type": "thinking", "thinking": "let me reason", "signature": "abc" }
+                    ] }
+                  } |]
+              ]
+        filterTranscript input @?= "THINKING:\nlet me reason\n"
+    , testCase "skips tool_use blocks" $ do
+        let
+          input =
+            jsonl
+              [ [aesonQQ| {
+                    "type": "assistant",
+                    "message": { "content": [
+                      { "type": "tool_use", "id": "x", "name": "Read", "input": {} }
+                    ] }
+                  } |]
+              ]
+        filterTranscript input @?= ""
     , testCase "skips non-user-assistant entries" $ do
         let
           input =
-            LBS.intercalate
-              "\n"
-              [ "{\"type\":\"system\",\"message\":{\"content\":\"system prompt\"}}"
-              , "{\"type\":\"user\",\"message\":{\"content\":\"real message\"}}"
-              , "{\"type\":\"result\",\"content\":\"tool output\"}"
+            jsonl
+              [ [aesonQQ| { "type": "queue-operation", "message": { "content": "queued" } } |]
+              , [aesonQQ| { "type": "user", "message": { "content": "real message" } } |]
               ]
         filterTranscript input @?= "USER:\nreal message\n"
     , testCase "skips entries with empty content" $ do
         let
           input =
-            LBS.intercalate
-              "\n"
-              [ "{\"type\":\"user\",\"message\":{\"content\":\"\"}}"
-              , "{\"type\":\"assistant\",\"message\":{\"content\":\"actual reply\"}}"
+            jsonl
+              [ [aesonQQ| { "type": "user", "message": { "content": "" } } |]
+              , [aesonQQ| { "type": "assistant", "message": { "content": "actual reply" } } |]
               ]
         filterTranscript input @?= "ASSISTANT:\nactual reply\n"
     , testCase "empty input produces empty output"

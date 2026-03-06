@@ -71,6 +71,7 @@ test-suite ccs-test
   build-depends:
       base >= 4.17 && < 5
     , aeson
+    , aeson-qq
     , ccs
     , rio
     , tasty
