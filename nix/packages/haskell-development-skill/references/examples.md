@@ -81,17 +81,24 @@ test-suite my-tests
 ## Imports
 
 ```haskell
--- BAD
+-- BAD: bare imports, no explicit list or qualification
 import Data.Text
 import Data.Map
-import Data.ByteString
+import Options.Applicative
 
--- GOOD
+-- GOOD: RIO re-exports preferred, all imports qualified or with explicit lists
 {-# LANGUAGE NoImplicitPrelude #-}
 import RIO
-import qualified RIO.Text as T
-import qualified RIO.Map as Map
-import qualified RIO.ByteString as B
+import RIO.Text qualified as T
+import RIO.Map qualified as Map
+import RIO.ByteString qualified as B
+
+-- GOOD: upstream import with comment when RIO doesn't re-export the function
+-- Data.Text.IO: RIO.Text does not re-export hPutStr
+import Data.Text.IO qualified as TIO
+
+-- GOOD: explicit import list for non-data modules
+import Options.Applicative (Parser, execParser, info, helper, subparser, command)
 ```
 
 ## Effect Pattern: Has* Typeclasses

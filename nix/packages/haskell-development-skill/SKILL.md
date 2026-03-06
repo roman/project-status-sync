@@ -27,9 +27,14 @@ consult examples for BAD/GOOD code pairs.
 ## Imports
 
 - Enable `NoImplicitPrelude` in every module
-- `import RIO` as the standard prelude
-- Qualified imports for data modules: `RIO.Text as T`, `RIO.ByteString as B`,
-  `RIO.Map as Map`, `RIO.Vector as V`
+- `import RIO` as the standard prelude (only exception to the explicit-import rule below)
+- Every other import must be **qualified** or have an **explicit import list** —
+  never use bare `import Foo`
+- Prefer RIO re-exports over base/upstream modules: use `RIO.Text`, `RIO.ByteString`,
+  `RIO.Map`, etc. Only import from upstream (e.g., `Data.Text.IO`) when the function
+  is not available in the RIO module — add a comment above the import explaining why
+- Qualified imports for data modules: `RIO.Text qualified as T`, `RIO.ByteString qualified as B`,
+  `RIO.Map qualified as Map`, `RIO.Vector qualified as V`
 
 ## Effect Pattern
 

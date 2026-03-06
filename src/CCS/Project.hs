@@ -6,8 +6,11 @@ module CCS.Project (
   normalizeRemoteUrl,
 ) where
 
-import Data.Text qualified as T
 import RIO
+import RIO.Text qualified as T
+
+-- Data.Text: RIO.Text does not re-export breakOn/breakOnEnd
+import Data.Text qualified as DT
 import System.FilePath (makeRelative, takeFileName)
 import System.Process (readProcessWithExitCode)
 
@@ -73,7 +76,7 @@ normalizeRemoteUrl url
 normalizeScp :: Text -> Text
 normalizeScp afterAt =
   let
-    (host, colonPath) = T.breakOn ":" afterAt
+    (host, colonPath) = DT.breakOn ":" afterAt
     path = T.drop 1 colonPath
   in
     host <> "/" <> stripDotGit path
@@ -82,12 +85,12 @@ normalizeScp afterAt =
 normalizeAfterScheme :: Text -> Text
 normalizeAfterScheme afterScheme =
   let
-    afterUser = case T.breakOn "@" afterScheme of
+    afterUser = case DT.breakOn "@" afterScheme of
       (before, rest)
         | not (T.null rest) && not ("/" `T.isInfixOf` before) ->
             T.drop 1 rest
       _ -> afterScheme
-    (host, slashPath) = T.breakOn "/" afterUser
+    (host, slashPath) = DT.breakOn "/" afterUser
     path = T.drop 1 slashPath
   in
     host <> "/" <> stripDotGit path
@@ -105,7 +108,7 @@ deriveSubpath gitRoot cwd =
 deriveName :: Text -> Text
 deriveName key =
   let
-    (_, afterSlash) = T.breakOnEnd "/" key
+    (_, afterSlash) = DT.breakOnEnd "/" key
   in
     if T.null afterSlash then key else afterSlash
 

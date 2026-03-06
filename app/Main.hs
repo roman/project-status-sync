@@ -4,9 +4,29 @@ import RIO
 
 import CCS (version)
 import CCS.Filter (filterTranscriptFile)
-import Data.Text qualified as T
+import RIO.Text qualified as T
+
+-- Data.Text.IO: RIO.Text does not re-export hPutStr
 import Data.Text.IO qualified as TIO
-import Options.Applicative
+import Options.Applicative (
+  Parser,
+  argument,
+  command,
+  execParser,
+  fullDesc,
+  header,
+  help,
+  helper,
+  info,
+  infoOption,
+  long,
+  metavar,
+  progDesc,
+  short,
+  str,
+  subparser,
+  (<**>),
+ )
 
 data Command
   = FilterCmd !FilePath
