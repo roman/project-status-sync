@@ -16,7 +16,6 @@ common warnings
 
 common extensions
   default-extensions:
-    BangPatterns
     DeriveGeneric
     DerivingStrategies
     FlexibleContexts
@@ -29,8 +28,6 @@ common extensions
     OverloadedStrings
     RecordWildCards
     ScopedTypeVariables
-    TupleSections
-    TypeFamilies
 
 library
   import:           warnings, extensions
@@ -40,16 +37,16 @@ library
     CCS
     CCS.Project
     CCS.Signal
+  other-modules:    Paths_ccs
+  autogen-modules:  Paths_ccs
   build-depends:
       base >= 4.17 && < 5
     , aeson
     , directory
     , filepath
-    , optparse-applicative
     , process
     , rio
     , text
-    , time
 
 executable ccs
   import:           warnings, extensions

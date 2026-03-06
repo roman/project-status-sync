@@ -33,3 +33,4 @@
 2026-03-05 12:00 [83827a14] — Skill: enrich haskell-development-skill with blog-sourced practices (snoyman.com, haskellforall.com, cs-syd.eu), reviewed via code-critic, trimmed to bug-preventing conventions only
 2026-03-05 19:13 [8fbc4425] — Fix: replace magic numbers in URL normalization with T.stripPrefix
 2026-03-05 19:18 [8fbc4425] — Fix: strict IO and atomic writes for signal files
+2026-03-05 19:23 [8fbc4425] — Fix: use Paths_ccs for version, remove useless test, clean cabal deps

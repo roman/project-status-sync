@@ -4,5 +4,8 @@ module CCS (
 
 import RIO
 
+import Data.Version (showVersion)
+import Paths_ccs qualified
+
 version :: Text
-version = "0.1.0.0"
+version = fromString (showVersion Paths_ccs.version)
