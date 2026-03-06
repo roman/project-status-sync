@@ -45,3 +45,4 @@
 2026-03-05 22:23 [a8f62485] — Test: add QuickCheck property tests (normalizeRemoteUrl, stripDotGit, deriveName, SignalPayload round-trip, Filter formatters, robustness)
 2026-03-06 06:33 [e4c60ef9] — Phase 2a.3: record-event CLI subcommand (CCS.Event types, appendEvent, CLI wiring, tests)
 2026-03-05 23:00 [9878df7a] — Infra: custom claude-headless-ccs with Haskell dev tools so ralph can run cabal test
+2026-03-06 12:00 [36006ba6] — Phase 2a.4: aggregation job skeleton (CCS.Aggregate, signal discovery, quiet period, locking, CLI wiring, tests, devenv fix)

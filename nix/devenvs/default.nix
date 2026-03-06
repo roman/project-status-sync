@@ -9,6 +9,8 @@ let
     hp.directory
     hp.filepath
     hp.optparse-applicative
+    hp.process
+    hp.rio
     hp.tasty
     hp.tasty-hunit
     hp.tasty-quickcheck

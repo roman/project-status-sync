@@ -5,7 +5,14 @@ module Main (main) where
 
 import RIO
 import RIO.ByteString.Lazy qualified as LBS
-import RIO.Directory (getTemporaryDirectory, removeFile)
+import RIO.Directory (
+  createDirectoryIfMissing,
+  doesFileExist,
+  getTemporaryDirectory,
+  removeDirectoryRecursive,
+  removeFile,
+ )
+import RIO.FilePath ((</>))
 import RIO.Text qualified as T
 import System.IO (openBinaryTempFileWithDefaultPermissions)
 
@@ -16,6 +23,16 @@ import Test.Tasty
 import Test.Tasty.HUnit
 import Test.Tasty.QuickCheck (testProperty)
 
+import CCS.Aggregate (
+  AggregateResult (..),
+  AvailabilitySignal (..),
+  SessionId (..),
+  consumeSignal,
+  discoverSignals,
+  isQuietPeriodElapsed,
+  runAggregation,
+  withLockFile,
+ )
 import CCS.Event (
   EventSource (..),
   EventTag (..),
@@ -36,7 +53,9 @@ import CCS.Project (
   normalizeRemoteUrl,
   stripDotGit,
  )
-import CCS.Signal (SignalPayload (..))
+import CCS.Signal (SignalPayload (..), writeSignal)
+import Data.Time.Calendar (fromGregorian)
+import Data.Time.Clock (NominalDiffTime, UTCTime (..), addUTCTime, secondsToNominalDiffTime)
 
 main :: IO ()
 main = defaultMain tests
@@ -49,6 +68,7 @@ tests =
     , eventTests
     , projectTests
     , filterTests
+    , aggregateTests
     , propertyTests
     ]
 
@@ -255,6 +275,138 @@ filterTests =
         $ filterTranscript ""
         @?= ""
     ]
+
+-- ---------------------------------------------------------------------------
+-- Aggregate tests
+-- ---------------------------------------------------------------------------
+
+referenceTime :: UTCTime
+referenceTime = UTCTime (fromGregorian 2026 3 6) 0
+
+mkSignal :: Text -> UTCTime -> AvailabilitySignal
+mkSignal sid ts =
+  AvailabilitySignal
+    { asSessionId = SessionId sid
+    , asProjectPath = "/tmp/project"
+    , asTimestamp = ts
+    , asTranscriptPath = "/tmp/transcript.jsonl"
+    , asSignalPath = "/tmp/signals/" <> T.unpack sid <> ".available"
+    }
+
+twentyMinutes :: NominalDiffTime
+twentyMinutes = secondsToNominalDiffTime (20 * 60)
+
+aggregateTests :: TestTree
+aggregateTests =
+  testGroup
+    "Aggregate"
+    [ testGroup
+        "isQuietPeriodElapsed"
+        [ testCase "empty signals → elapsed"
+            $ isQuietPeriodElapsed referenceTime twentyMinutes []
+            @?= True
+        , testCase "signal older than threshold → elapsed"
+            $ let
+                old = addUTCTime (-1800) referenceTime
+                signals = [mkSignal "s1" old]
+              in
+                isQuietPeriodElapsed referenceTime twentyMinutes signals @?= True
+        , testCase "signal newer than threshold → not elapsed"
+            $ let
+                recent = addUTCTime (-300) referenceTime
+                signals = [mkSignal "s1" recent]
+              in
+                isQuietPeriodElapsed referenceTime twentyMinutes signals @?= False
+        , testCase "newest signal determines result"
+            $ let
+                old = addUTCTime (-3600) referenceTime
+                recent = addUTCTime (-300) referenceTime
+                signals = [mkSignal "s1" old, mkSignal "s2" recent]
+              in
+                isQuietPeriodElapsed referenceTime twentyMinutes signals @?= False
+        ]
+    , testGroup
+        "discoverSignals"
+        [ testCase "empty directory → no signals" $ do
+            tmpDir <- getTemporaryDirectory
+            (dir, cleanup) <- createTempSignalDir tmpDir
+            signals <- runSimpleApp $ discoverSignals dir
+            cleanup
+            signals @?= []
+        , testCase "finds .available files" $ do
+            tmpDir <- getTemporaryDirectory
+            (dir, cleanup) <- createTempSignalDir tmpDir
+            let
+              payload = SignalPayload "/tmp/t.jsonl" "/tmp/proj"
+            writeSignal (dir </> "session-abc.available") payload
+            signals <- runSimpleApp $ discoverSignals dir
+            cleanup
+            length signals @?= 1
+            asSessionId (head signals) @?= SessionId "session-abc"
+        , testCase "ignores non-.available files" $ do
+            tmpDir <- getTemporaryDirectory
+            (dir, cleanup) <- createTempSignalDir tmpDir
+            let
+              payload = SignalPayload "/tmp/t.jsonl" "/tmp/proj"
+            writeSignal (dir </> "session-abc.available") payload
+            writeFile (dir </> "other.txt") "not a signal"
+            signals <- runSimpleApp $ discoverSignals dir
+            cleanup
+            length signals @?= 1
+        ]
+    , testGroup
+        "withLockFile"
+        [ testCase "returns Just on successful lock" $ do
+            tmpDir <- getTemporaryDirectory
+            let
+              lockPath = tmpDir </> "test-lock-success"
+            result <- runSimpleApp $ withLockFile lockPath (pure (42 :: Int))
+            removeFile lockPath
+            result @?= Just 42
+        , testCase "lock is released after action" $ do
+            tmpDir <- getTemporaryDirectory
+            let
+              lockPath = tmpDir </> "test-lock-released"
+            _ <- runSimpleApp $ withLockFile lockPath (pure ())
+            result <- runSimpleApp $ withLockFile lockPath (pure (99 :: Int))
+            removeFile lockPath
+            result @?= Just 99
+        ]
+    , testGroup
+        "runAggregation"
+        [ testCase "returns NoSignalsFound for empty dir" $ do
+            tmpDir <- getTemporaryDirectory
+            (dir, cleanup) <- createTempSignalDir tmpDir
+            result <- runSimpleApp $ runAggregation dir twentyMinutes (\_ -> pure ())
+            cleanup
+            result @?= NoSignalsFound
+        ]
+    , testGroup
+        "consumeSignal"
+        [ testCase "deletes signal file" $ do
+            tmpDir <- getTemporaryDirectory
+            let
+              path = tmpDir </> "to-consume.available"
+              payload = SignalPayload "/tmp/t.jsonl" "/tmp/proj"
+            writeSignal path payload
+            exists1 <- doesFileExist path
+            exists1 @?= True
+            let
+              signal = mkSignal "to-consume" referenceTime
+            consumeSignal signal{asSignalPath = path}
+            exists2 <- doesFileExist path
+            exists2 @?= False
+        ]
+    ]
+
+createTempSignalDir :: FilePath -> IO (FilePath, IO ())
+createTempSignalDir base = do
+  let
+    dir = base </> "ccs-test-signals"
+  createDirectoryIfMissing True dir
+  let
+    cleanup = removeDirectoryRecursive dir
+  pure (dir, cleanup)
 
 -- ---------------------------------------------------------------------------
 -- QuickCheck generators

@@ -26,7 +26,7 @@
 | Infra.4 | MicroVM sandboxing for ralph loops | **ABANDONED** | Infra.1-3 |
 | 0 | Spike: validate extraction approach | PARTIAL | — |
 | 1 | Capture: hooks + signals | DONE (verify build) | — |
-| 2a | Tooling: pre-filter, record-event, aggregation | IN PROGRESS | Infra, Phase 1 (signal format) |
+| 2a | Tooling: pre-filter, record-event, aggregation | DONE (verify build) | Infra, Phase 1 (signal format) |
 | 2b | Prompts: extraction, handoff, progress, synthesis | PARTIAL | Infra |
 | 2c | Integration: wire everything together | PENDING | 1, 2a, 2b |
 | 3 | Status & Handoffs: generate outputs | PENDING | 2c |
@@ -352,7 +352,7 @@ See:
 - [x] 2a.1: Pre-filter as library function
 - [x] 2a.2: CLI scaffolding
 - [x] 2a.3: record-event tool
-- [ ] 2a.4: Aggregation job skeleton
+- [x] 2a.4: Aggregation job skeleton (needs build verification outside sandbox)
 
 See:
 - `notes/handoffs/2026-03-06-pre-filter-library.md`
@@ -360,6 +360,7 @@ See:
 - `notes/handoffs/2026-03-06-codify-review-learnings.md`
 - `notes/handoffs/2026-03-06-cli-scaffolding.md`
 - `notes/handoffs/2026-03-06-record-event-tool.md`
+- `notes/handoffs/2026-03-06-aggregation-skeleton.md`
 
 ---
 

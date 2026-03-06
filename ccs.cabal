@@ -35,6 +35,7 @@ library
   default-language: GHC2021
   exposed-modules:
     CCS
+    CCS.Aggregate
     CCS.Event
     CCS.Filter
     CCS.Project
@@ -49,6 +50,7 @@ library
     , process
     , rio
     , text
+    , time
 
 executable ccs
   import:           warnings, extensions
@@ -80,3 +82,4 @@ test-suite ccs-test
     , tasty
     , tasty-hunit
     , tasty-quickcheck
+    , time

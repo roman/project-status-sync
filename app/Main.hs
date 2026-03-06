@@ -3,16 +3,19 @@ module Main (main) where
 import RIO
 
 import CCS (version)
+import CCS.Aggregate (AggregateResult (..), runAggregation)
 import CCS.Event (EventSource (..), EventTag (..), SessionEvent (..), appendEvent)
 import CCS.Filter (filterTranscriptFile)
 import RIO.Text qualified as T
 
 import Data.Text.IO qualified as TIO
+import Data.Time.Clock (secondsToNominalDiffTime)
 import Options.Applicative (
   Mod,
   OptionFields,
   Parser,
   argument,
+  auto,
   command,
   execParser,
   fullDesc,
@@ -35,7 +38,7 @@ import Options.Applicative (
 data Command
   = FilterCmd !FilePath
   | RecordEventCmd !EventTag !Text !EventSource
-  | AggregateCmd
+  | AggregateCmd !FilePath !Int
 
 main :: IO ()
 main = do
@@ -52,8 +55,20 @@ main = do
           exitFailure
         Just path ->
           appendEvent path SessionEvent{eventTag = tag, eventText = txt, eventSource = source}
-    AggregateCmd ->
-      logInfo "aggregate: not yet implemented"
+    AggregateCmd signalDir quietMins -> do
+      let
+        threshold = secondsToNominalDiffTime (fromIntegral quietMins * 60)
+      result <- runAggregation signalDir threshold $ \signal ->
+        logInfo $ "Would process: " <> displayShow signal
+      case result of
+        AggregatedSessions n ->
+          logInfo $ "Processed " <> display n <> " session(s)"
+        QuietPeriodNotElapsed ->
+          logInfo "Quiet period not yet elapsed, skipping"
+        NoSignalsFound ->
+          logInfo "No signals found"
+        LockBusy ->
+          logWarn "Another aggregation is already running"
  where
   opts =
     info
@@ -67,7 +82,7 @@ commandParser =
   subparser
     ( command "filter" (info filterParser (progDesc "Filter JSONL transcript to plain text"))
         <> command "record-event" (info recordEventParser (progDesc "Record a session event to SESSION_EVENTS_FILE"))
-        <> command "aggregate" (info (pure AggregateCmd) (progDesc "Run aggregation job"))
+        <> command "aggregate" (info aggregateParser (progDesc "Run aggregation job"))
     )
 
 filterParser :: Parser Command
@@ -84,6 +99,12 @@ recordEventParser =
 
 textOption :: Mod OptionFields String -> Parser Text
 textOption = fmap T.pack . option str
+
+aggregateParser :: Parser Command
+aggregateParser =
+  AggregateCmd
+    <$> option str (long "signal-dir" <> metavar "DIR" <> help "Directory containing .available signal files")
+    <*> option auto (long "quiet-minutes" <> metavar "N" <> value 20 <> help "Quiet period in minutes (default: 20)")
 
 versionOpt :: Parser (a -> a)
 versionOpt =
