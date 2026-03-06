@@ -5,7 +5,9 @@ module Main (main) where
 
 import RIO
 import RIO.ByteString.Lazy qualified as LBS
+import RIO.Directory (getTemporaryDirectory, removeFile)
 import RIO.Text qualified as T
+import System.IO (openBinaryTempFileWithDefaultPermissions)
 
 import Data.Aeson (Value, decode, encode)
 import Data.Aeson.QQ (aesonQQ)
@@ -14,6 +16,12 @@ import Test.Tasty
 import Test.Tasty.HUnit
 import Test.Tasty.QuickCheck (testProperty)
 
+import CCS.Event (
+  EventSource (..),
+  EventTag (..),
+  SessionEvent (..),
+  appendEvent,
+ )
 import CCS.Filter (
   ContentBlock (..),
   MessageContent (..),
@@ -38,6 +46,7 @@ tests =
   testGroup
     "CCS"
     [ signalTests
+    , eventTests
     , projectTests
     , filterTests
     , propertyTests
@@ -66,6 +75,75 @@ signalTests =
                 }
           in
             decode json @?= Just expected
+    ]
+
+eventTests :: TestTree
+eventTests =
+  testGroup
+    "Event"
+    [ testCase "JSON round-trip"
+        $ let
+            event =
+              SessionEvent
+                { eventTag = EventTag "decision"
+                , eventText = "use launchd over systemd"
+                , eventSource = EventSource "conversation"
+                }
+          in
+            decode (encode event) @?= Just event
+    , testCase "decodes expected JSON format"
+        $ let
+            json = "{\"tag\":\"blocker\",\"text\":\"waiting on API\",\"source\":\"conversation\"}"
+            expected =
+              SessionEvent
+                { eventTag = EventTag "blocker"
+                , eventText = "waiting on API"
+                , eventSource = EventSource "conversation"
+                }
+          in
+            decode json @?= Just expected
+    , testCase "appendEvent writes JSONL line" $ do
+        tmpDir <- getTemporaryDirectory
+        (tmpPath, h) <- openBinaryTempFileWithDefaultPermissions tmpDir "events.jsonl"
+        hClose h
+        let
+          event =
+            SessionEvent
+              { eventTag = EventTag "next"
+              , eventText = "wire up hook"
+              , eventSource = EventSource "conversation"
+              }
+        appendEvent tmpPath event
+        contents <- LBS.readFile tmpPath
+        removeFile tmpPath
+        let
+          decoded = decode contents
+        fmap eventTag decoded @?= Just (EventTag "next")
+        fmap eventText decoded @?= Just "wire up hook"
+    , testCase "appendEvent appends multiple lines" $ do
+        tmpDir <- getTemporaryDirectory
+        (tmpPath, h) <- openBinaryTempFileWithDefaultPermissions tmpDir "events.jsonl"
+        hClose h
+        let
+          event1 =
+            SessionEvent
+              { eventTag = EventTag "decision"
+              , eventText = "first"
+              , eventSource = EventSource "conversation"
+              }
+          event2 =
+            SessionEvent
+              { eventTag = EventTag "next"
+              , eventText = "second"
+              , eventSource = EventSource "conversation"
+              }
+        appendEvent tmpPath event1
+        appendEvent tmpPath event2
+        contents <- LBS.readFile tmpPath
+        removeFile tmpPath
+        let
+          lineCount = length $ filter (not . LBS.null) $ LBS.split 0x0A contents
+        lineCount @?= 2
     ]
 
 projectTests :: TestTree
@@ -250,6 +328,19 @@ instance Arbitrary SignalPayload where
 genRole :: Gen Text
 genRole = elements ["user", "assistant"]
 
+instance Arbitrary EventTag where
+  arbitrary = EventTag <$> elements ["decision", "question", "next", "blocker", "resolved", "context", "initiative"]
+
+instance Arbitrary EventSource where
+  arbitrary = pure (EventSource "conversation")
+
+instance Arbitrary SessionEvent where
+  arbitrary = do
+    eventTag <- arbitrary
+    eventText <- genNonEmptyText
+    eventSource <- arbitrary
+    pure SessionEvent{..}
+
 instance Arbitrary ContentBlock where
   arbitrary =
     oneof
@@ -281,6 +372,7 @@ propertyTests =
     [ testGroup "normalizeRemoteUrl" normalizeRemoteUrlProps
     , testGroup "stripDotGit" stripDotGitProps
     , testGroup "deriveName" deriveNameProps
+    , testGroup "Event" eventProps
     , testGroup "Signal" signalProps
     , testGroup "Filter" filterProps
     ]
@@ -337,6 +429,12 @@ deriveNameProps =
       $ forAll genNonEmptyText
       $ \t ->
         T.isSuffixOf (deriveName t) t
+  ]
+
+eventProps :: [TestTree]
+eventProps =
+  [ testProperty "JSON round-trip" $ \event ->
+      decode (encode (event :: SessionEvent)) === Just event
   ]
 
 signalProps :: [TestTree]

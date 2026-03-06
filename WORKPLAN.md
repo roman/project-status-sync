@@ -346,7 +346,7 @@ See:
 
 - [x] 2a.1: Pre-filter as library function
 - [x] 2a.2: CLI scaffolding
-- [ ] 2a.3: record-event tool
+- [x] 2a.3: record-event tool
 - [ ] 2a.4: Aggregation job skeleton
 
 See:
@@ -354,6 +354,7 @@ See:
 - `notes/handoffs/2026-03-06-filter-thinking-blocks.md`
 - `notes/handoffs/2026-03-06-codify-review-learnings.md`
 - `notes/handoffs/2026-03-06-cli-scaffolding.md`
+- `notes/handoffs/2026-03-06-record-event-tool.md`
 
 ---
 
