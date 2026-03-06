@@ -115,7 +115,7 @@ See: `notes/handoffs/2026-03-02-infra-project-bootstrap.md`
 
 ## Phase Infra.4: MicroVM Sandboxing
 
-**Status**: ABANDONED (2026-03-03)
+**Status**: ABANDONED (2026-03-03) → replaced by bubblewrap sandbox (2026-03-05)
 
 **Goal**: Enable safe ralph loops by running Claude in ephemeral NixOS VMs.
 
@@ -124,6 +124,11 @@ See: `notes/handoffs/2026-03-02-infra-project-bootstrap.md`
 - virtiofs required complex host daemon setup
 - nix database not shared, causing redundant fetches
 - Read-only squashfs root conflicted with writable store needs
+
+**Bubblewrap replacement**: Custom `claude-headless-ccs` built inline in devenv using
+`bubblewrap-claude.lib.deriveProfile`. Includes all dev tools (ghc, cabal, HLS, fourmolu,
+hlint, nixfmt) so `cabal test` works inside the sandbox. Devenv is the single source of truth
+for the tool list.
 
 ### Gates (historical)
 

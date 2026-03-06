@@ -15,6 +15,24 @@ let
     hp.text
     hp.time
   ];
+
+  sandboxLib = inputs.bubblewrap-claude.lib.${pkgs.system};
+
+  devTools = [
+    (pkgs.haskellPackages.ghcWithPackages haskellDeps)
+    pkgs.haskellPackages.cabal-install
+    pkgs.haskell-language-server
+    pkgs.haskellPackages.fourmolu
+    pkgs.haskellPackages.hlint
+    pkgs.nixfmt-rfc-style
+  ];
+
+  ccsHeadless = sandboxLib.mkHeadlessSandbox (
+    sandboxLib.deriveProfile sandboxLib.base {
+      name = "claude-headless-ccs";
+      packages = devTools;
+    }
+  );
 in
 {
   imports = [
@@ -24,14 +42,7 @@ in
     inputs.self.devenvModules.cabal-test
   ];
 
-  # _module.args = { inherit inputs; };
-
-  packages = [
-    (pkgs.haskellPackages.ghcWithPackages haskellDeps)
-    pkgs.haskellPackages.cabal-install
-    pkgs.haskell-language-server
-    inputs.bubblewrap-claude.packages.${pkgs.system}.claude-headless
-  ];
+  packages = devTools ++ [ ccsHeadless ];
 
   git-hooks.hooks.nixfmt = {
     enable = true;
