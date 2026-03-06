@@ -152,8 +152,12 @@ head -c8 .current-session-id 2>/dev/null || echo "unknown"
 
 ## Development
 
+**WARNING**: This project uses devenv, which requires `--impure` for all nix commands.
+If you see `error: Failed assertions: devenv was not able to determine the current directory`,
+add `--impure` to the command.
+
 ```bash
-nix develop              # Enter dev shell
+nix develop --impure     # Enter dev shell (--impure required by devenv)
 cabal build              # Build
 cabal test               # Run tests
 cabal run ccs -- --help  # Run CLI

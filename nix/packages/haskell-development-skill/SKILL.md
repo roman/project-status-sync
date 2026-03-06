@@ -74,7 +74,11 @@ consult examples for BAD/GOOD code pairs.
 - Define **custom exception types with context fields** — never throw bare strings
 - Catch low-level exceptions and re-throw wrapped with high-level context
 - Define `orDie` combinators for `Maybe`-to-`Either` conversion to reduce boilerplate
-- Make illegal states unrepresentable: prefer `NonEmpty a -> a` over `[a] -> Maybe a`
+- Make illegal states unrepresentable: prefer `NonEmpty a -> a` over `[a] -> Maybe a`.
+  Filter invalid values at the parse boundary so downstream code never sees them —
+  don't wrap fields in `Maybe` to represent "might not exist"
+- When a type intentionally omits variants from the domain (e.g., only modeling `text`
+  blocks from a richer format), document what is omitted and why in a comment
 
 ## Strings & Logging
 
@@ -98,6 +102,9 @@ consult examples for BAD/GOOD code pairs.
 
 - **Framework**: Tasty + tasty-hunit + tasty-quickcheck
 - **Property testing**: QuickCheck via tasty-quickcheck
+- **Test data readability**: For multi-line or escaped test data, prefer quasi-quoters
+  over string literals. Use domain-specific ones when available (e.g., `aeson-qq` for
+  JSON, `raw-strings-qq` for raw text) — inline escaped strings are unreadable
 
 ## Tooling
 
