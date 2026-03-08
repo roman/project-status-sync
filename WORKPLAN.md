@@ -28,7 +28,7 @@
 | 1 | Capture: hooks + signals | DONE (verify build) | — |
 | 2a | Tooling: pre-filter, record-event, aggregation | DONE (verify build) | Infra, Phase 1 (signal format) |
 | 2b | Prompts: extraction, handoff, progress, synthesis | **DONE** | Infra |
-| 2c | Integration: wire everything together | **CODE COMPLETE** (2c.2 awaits human e2e verification) | 1, 2a, 2b |
+| 2c | Integration: wire everything together | **DONE** (2c.2 verified 2026-03-08, code fence stripping TODO) | 1, 2a, 2b |
 | 3 | Status & Handoffs: generate outputs | **CODE COMPLETE** (3.4 awaits human quality validation) | 2c |
 | 4 | Retrieval: context injection (optional) | DEFERRED | 3 |
 | 5 | Archival: manage EVENTS.jsonl growth | DEFERRED | 4 |
@@ -425,8 +425,8 @@ See:
 
 ### Gates
 
-- [ ] End-to-end: session ends → EVENTS.jsonl updated
-- [ ] Aggregation job invokes extraction prompt correctly
+- [x] End-to-end: session ends → EVENTS.jsonl updated (verified 2026-03-08)
+- [x] Aggregation job invokes extraction prompt correctly (verified 2026-03-08)
 - [ ] ~~record-event subprocess pattern works~~ (replaced by stdout parsing — see 2c.1 handoff)
 
 ### Chunks
@@ -451,7 +451,25 @@ See:
 ### Progress
 
 - [x] 2c.1: Aggregation job completion
-- [ ] 2c.2: End-to-end testing (requires real Claude sessions outside sandbox — human-verified)
+- [x] 2c.2: End-to-end testing (human-verified 2026-03-08, steps 1-5 PASS)
+
+**2c.2 test results** (2026-03-08):
+
+Steps 1-5 of `notes/plans/2026-03-08-phase-2c2-pipeline-verification.md` all PASS.
+Step 6 (live hook integration) skipped — not required for gate.
+
+| Step | Result | Notes |
+|------|--------|-------|
+| 1 — Hook smoke test | PASS | Signal file created with correct content |
+| 2 — Filter real transcript | PASS | Clean USER:/ASSISTANT:/THINKING: labels |
+| 3 — Signal discovery | PASS | "Processing 1 signal(s)", expected failure on fake path |
+| 4 — Full pipeline | PASS | All 4 outputs exist with reasonable content |
+| 5 — Signal consumption | PASS | Signal directory empty after processing |
+| 6 — Live hook | SKIP | Not required for gate |
+
+**Issues found during 2c.2 testing**:
+- [ ] `CLAUDECODE` env var prevents `claude -p` subprocess — add explicit CLI flag (e.g. `--bypass-claude-check`) that strips `CLAUDECODE` from child env; revert current implicit stripping in `runLLMPrompt`
+- [ ] LLM wraps STATUS.md and progress.log output in code fences (` ```markdown ` / ` ``` `) — need to strip fences from LLM output before writing files
 
 **Pending refactors** (from process review):
 - [x] Extract `AggregateConfig` record from `AggregateCmd` (6 positional fields → named record)
