@@ -17,13 +17,11 @@ import CCS.Filter (filterTranscriptFile)
 import CCS.Project (Project (..), ProjectKey (..), ProjectName (..), identifyProject)
 import Data.Aeson (FromJSON (..), ToJSON (..), object, withObject, (.:), (.=))
 
--- Data.Text.IO: RIO.Text does not re-export file I/O functions
-import Data.Text.IO qualified as TIO
 import Data.Time.Calendar (Day)
 import Data.Time.Clock (getCurrentTime, utctDay)
 import RIO.Directory (createDirectoryIfMissing)
 import RIO.FilePath ((</>))
-import System.Process (readProcessWithExitCode)
+import System.Process.Typed (byteStringInput, proc, readProcess, setStdin)
 
 data ProcessConfig = ProcessConfig
   { pcOutputDir :: !FilePath
@@ -119,14 +117,20 @@ processSession ProcessConfig{..} signal = do
   if T.null filtered
     then logWarn $ "Empty transcript after filtering for session " <> display sid
     else do
-      promptText <- liftIO $ TIO.readFile pcPromptFile
-
+      promptBytes <- readFileBinary pcPromptFile
       let
-        fullPrompt = T.unpack $ promptText <> "\n" <> filtered
+        promptText = T.decodeUtf8With T.lenientDecode promptBytes
+        fullPrompt = T.encodeUtf8 $ promptText <> "\n" <> filtered
+        processConfig =
+          setStdin (byteStringInput (fromStrictBytes fullPrompt))
+            $ proc pcCommand pcCommandArgs
 
       logInfo $ "Running extraction for session " <> display sid
-      (exitCode, out, err) <-
-        liftIO $ readProcessWithExitCode pcCommand pcCommandArgs fullPrompt
+      (exitCode, outBs, errBs) <- readProcess processConfig
+
+      let
+        out = T.decodeUtf8With T.lenientDecode (toStrictBytes outBs)
+        err = T.decodeUtf8With T.lenientDecode (toStrictBytes errBs)
 
       case exitCode of
         ExitFailure code -> do
@@ -135,19 +139,27 @@ processSession ProcessConfig{..} signal = do
             <> display code
             <> ") for session "
             <> display sid
-          unless (null err)
+          unless (T.null err)
             $ logError
             $ "stderr: "
-            <> fromString err
+            <> display err
         ExitSuccess -> do
           let
-            events = parseExtractionOutput (T.pack out)
+            events = parseExtractionOutput out
           logInfo $ "Extracted " <> display (length events) <> " event(s) for session " <> display sid
 
           project <- identifyProject (asProjectPath signal)
 
           today <- liftIO $ utctDay <$> getCurrentTime
           let
+            mkEntry day proj event =
+              EventLogEntry
+                { eleDate = day
+                , eleSessionId = asSessionId signal
+                , eleProjectKey = projectKey proj
+                , eleProjectName = projectName proj
+                , eleEvent = event
+                }
             ProjectName pname = projectName project
             eventsDir = pcOutputDir </> T.unpack pname
             eventsFile = eventsDir </> "EVENTS.jsonl"
@@ -157,12 +169,3 @@ processSession ProcessConfig{..} signal = do
           let
             entries = map (mkEntry today project) events
           mapM_ (appendJsonLine eventsFile) entries
- where
-  mkEntry day project event =
-    EventLogEntry
-      { eleDate = day
-      , eleSessionId = asSessionId signal
-      , eleProjectKey = projectKey project
-      , eleProjectName = projectName project
-      , eleEvent = event
-      }

@@ -14,7 +14,7 @@ import RIO.Text qualified as T
 -- Data.Text: RIO.Text does not re-export breakOn/breakOnEnd
 import Data.Text qualified as DT
 import System.FilePath (makeRelative, takeFileName)
-import System.Process (readProcessWithExitCode)
+import System.Process.Typed (proc, readProcess)
 
 newtype ProjectKey = ProjectKey Text
   deriving stock (Eq, Show)
@@ -131,15 +131,20 @@ gitCommand
   -> [String]
   -> m (Maybe Text)
 gitCommand dir args = do
-  (exitCode, stdout, errout) <-
-    liftIO $ readProcessWithExitCode "git" (["-C", dir] ++ args) ""
+  (exitCode, outBs, errBs) <- readProcess (proc "git" (["-C", dir] ++ args))
+  let
+    errout = T.decodeUtf8With T.lenientDecode (toStrictBytes errBs)
   case exitCode of
-    ExitSuccess -> pure $ Just (T.strip $ T.pack stdout)
+    ExitSuccess ->
+      let
+        out = T.decodeUtf8With T.lenientDecode (toStrictBytes outBs)
+      in
+        pure $ Just (T.strip out)
     ExitFailure _ -> do
-      unless (null errout)
+      unless (T.null errout)
         $ logWarn
         $ "git "
         <> displayShow args
         <> " failed: "
-        <> fromString errout
+        <> display errout
       pure Nothing

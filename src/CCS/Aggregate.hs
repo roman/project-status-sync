@@ -12,9 +12,8 @@ module CCS.Aggregate (
 import RIO
 import RIO.Text qualified as T
 
-import Data.List (maximum)
-
 import CCS.Signal (SignalPayload (..), readSignal)
+import Data.List (foldl1')
 import Data.Time.Clock (NominalDiffTime, UTCTime, diffUTCTime, getCurrentTime)
 import GHC.IO.Handle.Lock (LockMode (..), hTryLock)
 import RIO.Directory (
@@ -81,7 +80,8 @@ isQuietPeriodElapsed :: UTCTime -> NominalDiffTime -> [AvailabilitySignal] -> Bo
 isQuietPeriodElapsed _ _ [] = True
 isQuietPeriodElapsed now threshold signals =
   let
-    newestTimestamp = maximum $ map asTimestamp signals
+    -- SAFETY: foldl1' is partial on [], but the [] case is handled above
+    newestTimestamp = foldl1' max $ map asTimestamp signals
   in
     diffUTCTime now newestTimestamp >= threshold
 
@@ -92,7 +92,7 @@ withLockFile lockPath action =
     (liftIO . closeLock)
     $ \case
       Nothing -> pure Nothing
-      Just h -> Just <$> action
+      Just _ -> Just <$> action
  where
   openLock path = do
     h <- openFile path AppendMode

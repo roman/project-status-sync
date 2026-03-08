@@ -13,6 +13,7 @@ common warnings
     -Wincomplete-uni-patterns
     -Wpartial-fields
     -Wredundant-constraints
+    -Werror=missing-fields
 
 common extensions
   default-extensions:
@@ -48,8 +49,8 @@ library
     , aeson
     , directory
     , filepath
-    , process
     , rio
+    , typed-process
     , text
     , time
 
