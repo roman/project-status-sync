@@ -54,3 +54,4 @@
 2026-03-08 22:15 [2f981959] — Architect: proposal for Maybe FilePath in ProcessConfig (recommends Option B: make mandatory)
 2026-03-08 21:25 [5c24af72] — Process: add proposal template + review gates to close evolution path feedback loop
 2026-03-08 23:45 [8374e96c] — Phase 2c: implement approved proposal — make prompt fields mandatory (remove Maybe, loud CLI errors)
+2026-03-08 23:59 [7d1da62a] — PM: update design.md to reflect stdout-parsing approach (was documenting record-event subprocess)

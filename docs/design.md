@@ -2,7 +2,7 @@
 project: claude-conversation-sync
 status: in-design
 created: 2026-02-26
-updated: 2026-03-03
+updated: 2026-03-08
 repo: ~/Projects/self/claude-conversation-sync
 ---
 
@@ -31,7 +31,7 @@ repo: ~/Projects/self/claude-conversation-sync
   - [Pre-filtering](#session-transcript-pre-filtering)
   - [Prompt Inventory](#prompt-inventory)
 - [Type-Driven Design](#type-driven-design)
-  - [Approach](#approach-record-event-cli-subprocess)
+  - [Approach](#approach-stdout-parsing)
   - [Types](#types)
   - [Resolved Design Decisions](#resolved-design-decisions)
 - [Implementation](#implementation)
@@ -518,7 +518,7 @@ Create a file in nix/packages/ and git add it...
 
 | Prompt | Input | Output |
 |--------|-------|--------|
-| **Session extraction** | Pre-filtered transcript | `record-event` calls with tags and text |
+| **Session extraction** | Pre-filtered transcript | `[tag] text` lines on stdout |
 | **Handoff generation** | This session's events | Handoff markdown + topic slug |
 | **Progress entry** | This session's events | Single-line progress.log entry |
 | **Status synthesis** | Full EVENTS.jsonl + handoff list | STATUS.md in 4-question format |
@@ -539,25 +539,29 @@ Status runs last so it can include wikilinks to the handoff just created.
 
 ## Type-Driven Design
 
-### Approach: record-event CLI subprocess
+### Approach: stdout parsing
 
-The aggregation job calls `claude -p` as a subprocess. The LLM writes SessionEvents by
-calling `record-event` — a small CLI on `$PATH` — rather than returning JSON to stdout.
+The aggregation job calls `claude -p` as a subprocess, piping the prompt and pre-filtered
+transcript via stdin. The LLM outputs structured `[tag] text` lines on stdout, which the
+Haskell process parses into `SessionEvent` values.
 
 ```
 Processing job
     │
-    ├── spawn: claude -p <prompt>     (env: SESSION_EVENTS_FILE=/tmp/session-abc123.jsonl)
+    ├── pipe prompt+transcript via stdin to: claude -p
     │              │
-    │              └── LLM calls: record-event --tag decision --text "use launchd"
-    │                                  │
-    │                                  └── appends JSON line to $SESSION_EVENTS_FILE
+    │              └── LLM writes to stdout:
+    │                    [decision] use launchd over systemd for macOS watcher
+    │                    [resolved] home-manager WatchPaths natively supported
+    │                    [next] wire up SessionEnd hook
     │
-    ├── read $SESSION_EVENTS_FILE → [SessionEvent]
-    └── compose SessionReport → flatten to EVENTS.jsonl
+    ├── parseExtractionOutput stdout → [SessionEvent]
+    └── append EventLogEntry records to EVENTS.jsonl
 ```
 
-This eliminates API client setup — `claude` handles all LLM backend concerns.
+Simpler than the previously considered `record-event` subprocess pattern: no env var
+coordination, no temp files, no extra CLI on `$PATH`. The LLM just writes tagged lines
+and the host process parses them.
 
 ---
 

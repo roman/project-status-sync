@@ -457,7 +457,7 @@ See:
 - [ ] Extract `AggregateConfig` record from `AggregateCmd` (6 positional fields → named record) — **BLOCKED** by Maybe proposal
 - [x] Proposal: `Maybe FilePath` in `ProcessConfig` → See `notes/proposals/2026-03-08-process-config-prompt-fields.md` (Option B: APPROVED)
 - [x] Implement proposal: remove Maybe from prompt fields, make CLI flags required
-- [ ] Update `docs/design.md` to reflect stdout-parsing approach (currently documents record-event subprocess)
+- [x] Update `docs/design.md` to reflect stdout-parsing approach (currently documents record-event subprocess)
 
 **Review gates** (revisit after milestone):
 - [ ] After Phase 3.3 lands: is field count now painful enough to justify PromptBundle (Option C)? See `notes/proposals/2026-03-08-process-config-prompt-fields.md` § Evolution Path
