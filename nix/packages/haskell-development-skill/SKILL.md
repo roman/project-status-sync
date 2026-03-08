@@ -36,6 +36,61 @@ consult examples for BAD/GOOD code pairs.
 - Qualified imports for data modules: `RIO.Text qualified as T`, `RIO.ByteString qualified as B`,
   `RIO.Map qualified as Map`, `RIO.Vector qualified as V`
 
+## RIO-First Patterns
+
+RIO is a **curated standard library**, not just a prelude. Always check what RIO
+provides before reaching for upstream packages. Common traps:
+
+### Safe alternatives to partial functions
+- `maximum`/`minimum` → `maximumMaybe`/`minimumMaybe` from `RIO.List`
+- `head`/`tail`/`last`/`init` → `headMaybe`/`tailMaybe`/`lastMaybe`/`initMaybe`
+  from `RIO.List`
+- `fromJust` → pattern match or `fromMaybe`
+- `read` → `readMaybe` (re-exported by `RIO`)
+- `!!` → `(!?)` from `RIO.Vector` or `lookup`/`find` patterns
+- `foldl1`/`foldl1'`/`foldr1` → use `foldl'` with explicit seed, or switch
+  to `NonEmpty` from `RIO.NonEmpty` and use its total `head`/`foldl1`
+- If you must use a partial function, import from `RIO.List.Partial` or
+  `RIO.Partial` explicitly — the `.Partial` suffix signals deliberate intent
+- Any call to an unsafe/partial function (regardless of source) must have a
+  `-- SAFETY:` comment at the usage site explaining why the call is safe
+
+### Encoding and decoding (already in RIO.Text)
+- `encodeUtf8`, `decodeUtf8With`, `decodeUtf8'`, `lenientDecode` are all
+  re-exported by `RIO.Text` — never import `Data.Text.Encoding` directly
+
+### Process execution (use RIO.Process)
+- Never import `System.Process` — it uses `String` for stdin/stdout/stderr
+- `RIO.Process` wraps `typed-process` with `ByteString` streams and logging
+- Use `proc`, `readProcess`, `runProcess` from `RIO.Process` or
+  `System.Process.Typed`
+- `HasProcessContext env` provides PATH lookup, env vars, and working directory
+
+### File I/O (use RIO.File, avoid lazy I/O)
+- Never use `readFile` or `TIO.readFile` — they are lazy I/O
+- Read text files: `readFileBinary path` then `T.decodeUtf8With T.lenientDecode`
+- Write safely: `writeBinaryFileAtomic` (crash-safe) or
+  `writeBinaryFileDurable` (fsync'd)
+- `RIO` re-exports `readFileBinary`, `writeFileBinary` — no extra import needed
+
+### Logging (display, not show)
+- `display` for `Text`, `Int`, etc. — never `fromString . show`
+- `displayShow` when you need a `Show` instance as `Utf8Builder`
+- `displayBytesUtf8` for `ByteString` → `Utf8Builder`
+
+### Containers and directories (RIO re-exports)
+- `RIO.Map`, `RIO.Set`, `RIO.HashMap`, `RIO.HashSet`, `RIO.Seq`,
+  `RIO.Vector`, `RIO.NonEmpty` — never import `Data.Map`, `Data.Set`, etc.
+- `RIO.Directory` wraps `System.Directory` — never import it directly
+- `RIO.FilePath` wraps `System.FilePath` — never import it directly
+- `RIO.Time` wraps `Data.Time` — use it for `UTCTime`, `Day`,
+  `NominalDiffTime`, `getCurrentTime`, `diffUTCTime`, etc.
+
+### Concurrency and exceptions (already in RIO)
+- `RIO` re-exports `UnliftIO.Exception` — never import `Control.Exception`
+- `RIO` re-exports `UnliftIO.Async` — never import `Control.Concurrent.Async`
+- `RIO` re-exports STM, MVar, IORef — never import from `Control.Concurrent`
+
 ## Effect Pattern
 
 - Application code lives in `RIO env` (a `ReaderT env IO` newtype)
@@ -66,11 +121,13 @@ consult examples for BAD/GOOD code pairs.
 
 ## Safety
 
-- No partial functions: never use `head`, `tail`, `fromJust`, `read`, `!!`
-  — they live in `RIO.Partial` for a reason
+- No partial functions: never use `head`, `tail`, `fromJust`, `read`, `!!`,
+  `maximum`, `minimum`, `foldl1` — they live in `RIO.Partial` /
+  `RIO.List.Partial` for a reason. Use RIO's `*Maybe` safe alternatives
+  (see RIO-First Patterns above)
 - **No `foldl`**: always use `foldl'` (strict left fold) — lazy `foldl` causes
   space leaks
-- No lazy I/O: use conduit for streaming
+- No lazy I/O: use `readFileBinary` + decode, or conduit for streaming
 - Always use `bracket`/`finally` for resource management
 - **Beware ad-hoc polymorphism after refactoring**: prefer monomorphic functions
   where type dispatch could silently change behavior (e.g., `length` on a

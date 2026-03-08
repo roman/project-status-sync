@@ -101,6 +101,146 @@ import Data.Text.IO qualified as TIO
 import Options.Applicative (Parser, execParser, info, helper, subparser, command)
 ```
 
+## RIO-First: Safe Alternatives to Partial Functions
+
+```haskell
+-- BAD: partial maximum from Data.List — crashes on []
+import Data.List (maximum)
+newest = maximum timestamps
+
+-- BAD: foldl1' from Data.List — still partial on []
+import Data.List (foldl1')
+newest = foldl1' max timestamps
+
+-- GOOD: maximumMaybe from RIO.List — total, returns Maybe
+import RIO.List (maximumMaybe)
+case maximumMaybe timestamps of
+  Nothing -> handleEmpty
+  Just newest -> use newest
+
+-- GOOD: headMaybe from RIO.List — total
+import RIO.List (headMaybe)
+case headMaybe items of
+  Nothing -> handleEmpty
+  Just x -> use x
+
+-- GOOD: use NonEmpty when you know the list is non-empty
+import RIO.NonEmpty qualified as NE
+processItems :: NonEmpty Item -> Result
+processItems items =
+  let newest = NE.head items  -- total on NonEmpty
+  in ...
+
+-- ACCEPTABLE: import from .Partial when a guard makes it safe
+import RIO.List.Partial (maximum)
+isQuietPeriodElapsed _ _ [] = True  -- [] handled here
+isQuietPeriodElapsed now threshold signals =
+  let
+    -- SAFETY: [] case handled by clause above
+    newestTimestamp = maximum $ map asTimestamp signals
+  in ...
+```
+
+## RIO-First: Encoding and Decoding
+
+```haskell
+-- BAD: importing upstream encoding modules
+import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
+import Data.Text.Encoding.Error (lenientDecode)
+
+-- GOOD: already re-exported by RIO.Text
+import RIO.Text qualified as T
+decoded = T.decodeUtf8With T.lenientDecode rawBytes
+encoded = T.encodeUtf8 myText
+```
+
+## RIO-First: Process Execution
+
+```haskell
+-- BAD: System.Process uses String for stdin/stdout/stderr
+import System.Process (readProcessWithExitCode)
+let input = T.unpack myText           -- Text → String (wasteful)
+(exit, out, err) <- readProcessWithExitCode "cmd" args input
+let result = T.pack out               -- String → Text (wasteful)
+
+-- GOOD: typed-process via RIO.Process uses ByteString
+import System.Process.Typed (proc, readProcess, setStdin, byteStringInput)
+let
+  input = T.encodeUtf8 myText
+  config = setStdin (byteStringInput (fromStrictBytes input))
+    $ proc "cmd" args
+(exit, outBs, errBs) <- readProcess config
+let result = T.decodeUtf8With T.lenientDecode (toStrictBytes outBs)
+```
+
+## RIO-First: File I/O
+
+```haskell
+-- BAD: lazy I/O via Data.Text.IO
+import Data.Text.IO qualified as TIO
+contents <- TIO.readFile path
+
+-- BAD: lazy I/O via Prelude
+contents <- readFile path
+
+-- GOOD: strict binary read + decode (readFileBinary is from RIO)
+bytes <- readFileBinary path
+let contents = T.decodeUtf8With T.lenientDecode bytes
+
+-- GOOD: atomic write (crash-safe)
+import RIO.File (writeBinaryFileAtomic)
+writeBinaryFileAtomic path (T.encodeUtf8 contents)
+```
+
+## RIO-First: Logging with display
+
+```haskell
+-- BAD: show + fromString for log messages
+logInfo $ "Count: " <> fromString (show n)
+
+-- GOOD: display for common types (Text, Int, etc.)
+logInfo $ "Count: " <> display n
+
+-- GOOD: displayShow when you need Show instance
+logInfo $ "Config: " <> displayShow config
+
+-- BAD: putStrLn for output
+liftIO $ putStrLn ("Processing " ++ show item)
+
+-- GOOD: structured logging
+logInfo $ "Processing " <> display item
+```
+
+## RIO-First: Upstream Module Mapping
+
+```haskell
+-- BAD: importing upstream modules that RIO wraps
+import Data.Map qualified as Map          -- use RIO.Map
+import Data.Set qualified as Set          -- use RIO.Set
+import Data.HashMap.Strict qualified as HM -- use RIO.HashMap
+import Data.HashSet qualified as HS       -- use RIO.HashSet
+import Data.Sequence qualified as Seq     -- use RIO.Seq
+import Data.Vector qualified as V         -- use RIO.Vector
+import System.Directory                   -- use RIO.Directory
+import System.FilePath                    -- use RIO.FilePath
+import Control.Exception                  -- already in RIO (via UnliftIO)
+import Control.Concurrent.Async           -- already in RIO (via UnliftIO)
+import Control.Concurrent.STM             -- already in RIO (via UnliftIO)
+import Data.IORef                         -- already in RIO
+import Control.Concurrent.MVar            -- already in RIO
+
+-- GOOD: use RIO modules
+import RIO.Map qualified as Map
+import RIO.Set qualified as Set
+import RIO.HashMap qualified as HM
+import RIO.HashSet qualified as HS
+import RIO.Seq qualified as Seq
+import RIO.Vector qualified as V
+import RIO.Directory (listDirectory, doesFileExist)
+import RIO.FilePath ((</>), takeExtension)
+-- Exception, Async, STM, IORef, MVar: already available from `import RIO`
+```
+
 ## Effect Pattern: Has* Typeclasses
 
 ```haskell
