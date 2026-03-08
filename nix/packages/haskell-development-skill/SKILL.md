@@ -147,7 +147,8 @@ consult examples for BAD/GOOD code pairs.
 
 ## Style
 
-- Prefer `let ... in` over `where`; `where` acceptable only for small functions
+- Prefer `let ... in` over `where` for bindings; `where` acceptable for
+  local function definitions and small bindings
 - `let` and `in` keywords live on their own lines
 - `where` keyword lives on its own line
 - Point-free when it improves clarity; named arguments when composition would
