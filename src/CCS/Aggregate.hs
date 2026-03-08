@@ -13,7 +13,6 @@ import RIO
 import RIO.Text qualified as T
 
 import CCS.Signal (SignalPayload (..), readSignal)
-import Data.List (foldl1')
 import Data.Time.Clock (NominalDiffTime, UTCTime, diffUTCTime, getCurrentTime)
 import GHC.IO.Handle.Lock (LockMode (..), hTryLock)
 import RIO.Directory (
@@ -23,6 +22,7 @@ import RIO.Directory (
   removeFile,
  )
 import RIO.FilePath (takeBaseName, takeExtension, (</>))
+import RIO.List.Partial (maximum)
 
 newtype SessionId = SessionId Text
   deriving stock (Eq, Ord, Show)
@@ -80,8 +80,8 @@ isQuietPeriodElapsed :: UTCTime -> NominalDiffTime -> [AvailabilitySignal] -> Bo
 isQuietPeriodElapsed _ _ [] = True
 isQuietPeriodElapsed now threshold signals =
   let
-    -- SAFETY: foldl1' is partial on [], but the [] case is handled above
-    newestTimestamp = foldl1' max $ map asTimestamp signals
+    -- SAFETY: maximum is partial on [], but the [] case is handled above
+    newestTimestamp = maximum $ map asTimestamp signals
   in
     diffUTCTime now newestTimestamp >= threshold
 
