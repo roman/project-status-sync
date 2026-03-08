@@ -454,8 +454,9 @@ See:
 - [ ] 2c.2: End-to-end testing
 
 **Pending refactors** (from process review):
-- [ ] Extract `AggregateConfig` record from `AggregateCmd` (6 positional fields → named record)
-- [ ] Proposal needed: `Maybe FilePath` in `ProcessConfig` — are handoff/progress prompts truly optional or a configuration error? See `notes/proposals/` when written.
+- [ ] Extract `AggregateConfig` record from `AggregateCmd` (6 positional fields → named record) — **BLOCKED** by Maybe proposal
+- [x] Proposal: `Maybe FilePath` in `ProcessConfig` → See `notes/proposals/2026-03-08-process-config-prompt-fields.md` (recommends Option B: make mandatory, awaiting human review)
+- [ ] Implement proposal: remove Maybe from prompt fields, make CLI flags required — **BLOCKED** by proposal approval
 - [ ] Update `docs/design.md` to reflect stdout-parsing approach (currently documents record-event subprocess)
 
 See:
