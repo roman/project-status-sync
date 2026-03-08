@@ -67,11 +67,25 @@ git commit -m "implement feature"
 
 If you create a plan during this session (via EnterPlanMode or research):
 
-1. Write it to `docs/plans/YYYY-MM-DD-topic-kebab-case.md`
+1. Write it to `notes/plans/YYYY-MM-DD-topic-kebab-case.md`
 2. Create a handoff in `notes/handoffs/` referencing the plan
 3. Include both in your commit
 
 Plans in the context window are lost on session end. Plans on disk survive.
+
+## Human Testing Plans
+
+When a task requires verification outside the sandbox (real sessions, live hooks,
+subjective quality assessment), do not leave a vague "human must test" note. Instead:
+
+1. Create a test plan at `notes/plans/YYYY-MM-DD-phase-N-topic.md`
+2. Structure it so an LLM agent can read it and drive each step interactively with a human
+3. Each step: what to run, expected output, PASS/FAIL criteria
+4. Include an Agent Protocol section (step ordering, result tracking, failure handling)
+5. Map steps to WORKPLAN gates so the agent knows what to check off on completion
+6. Reference the plan from the WORKPLAN phase and handoff notes
+
+See existing plans in `notes/plans/` for examples.
 
 ## Proposals
 
