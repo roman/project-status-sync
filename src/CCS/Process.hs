@@ -17,10 +17,9 @@ import CCS.Filter (filterTranscriptFile)
 import CCS.Project (Project (..), ProjectKey (..), ProjectName (..), identifyProject)
 import Data.Aeson (FromJSON (..), ToJSON (..), object, withObject, (.:), (.=))
 
-import Data.Time.Calendar (Day)
-import Data.Time.Clock (getCurrentTime, utctDay)
 import RIO.Directory (createDirectoryIfMissing)
 import RIO.FilePath ((</>))
+import RIO.Time (Day, getCurrentTime, utctDay)
 import System.Process.Typed (byteStringInput, proc, readProcess, setStdin)
 
 data ProcessConfig = ProcessConfig

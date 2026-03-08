@@ -13,7 +13,7 @@ import RIO.Text qualified as T
 
 -- Data.Text: RIO.Text does not re-export breakOn/breakOnEnd
 import Data.Text qualified as DT
-import System.FilePath (makeRelative, takeFileName)
+import RIO.FilePath (makeRelative, takeFileName)
 import System.Process.Typed (proc, readProcess)
 
 newtype ProjectKey = ProjectKey Text

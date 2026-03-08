@@ -14,7 +14,11 @@ import RIO.Directory (
  )
 import RIO.FilePath ((</>))
 import RIO.Text qualified as T
-import System.IO (openBinaryTempFileWithDefaultPermissions, writeFile)
+
+-- System.IO: RIO does not re-export openBinaryTempFileWithDefaultPermissions
+import System.IO (openBinaryTempFileWithDefaultPermissions)
+
+-- System.Random: RIO does not provide random number generation
 import System.Random (randomRIO)
 
 import Data.Aeson (Value, decode, encode)
@@ -61,8 +65,7 @@ import CCS.Project (
   stripDotGit,
  )
 import CCS.Signal (SignalPayload (..), writeSignal)
-import Data.Time.Calendar (fromGregorian)
-import Data.Time.Clock (NominalDiffTime, UTCTime (..), addUTCTime, secondsToNominalDiffTime)
+import RIO.Time (NominalDiffTime, UTCTime (..), addUTCTime, fromGregorian, secondsToNominalDiffTime)
 
 main :: IO ()
 main = defaultMain tests
@@ -358,7 +361,7 @@ aggregateTests =
             let
               payload = SignalPayload "/tmp/t.jsonl" "/tmp/proj"
             writeSignal (dir </> "session-abc.available") payload
-            writeFile (dir </> "other.txt") "not a signal"
+            writeFileBinary (dir </> "other.txt") "not a signal"
             signals <- runSimpleApp $ discoverSignals dir
             cleanup
             length signals @?= 1

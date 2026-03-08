@@ -12,6 +12,8 @@ import RIO.ByteString qualified as BS
 import RIO.ByteString.Lazy qualified as LBS
 import RIO.Directory (renameFile)
 import RIO.FilePath (takeDirectory)
+
+-- System.IO: RIO does not re-export openBinaryTempFileWithDefaultPermissions
 import System.IO (openBinaryTempFileWithDefaultPermissions)
 
 data SignalPayload = SignalPayload

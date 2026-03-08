@@ -9,8 +9,6 @@ import CCS.Filter (filterTranscriptFile)
 import CCS.Process (ProcessConfig (..), processSession)
 import RIO.Text qualified as T
 
-import Data.Text.IO qualified as TIO
-import Data.Time.Clock (secondsToNominalDiffTime)
 import Options.Applicative (
   Mod,
   OptionFields,
@@ -35,6 +33,9 @@ import Options.Applicative (
   value,
   (<**>),
  )
+import RIO.Time (secondsToNominalDiffTime)
+
+-- System.Environment: RIO does not re-export lookupEnv
 import System.Environment (lookupEnv)
 
 data Command
@@ -48,7 +49,7 @@ main = do
   runSimpleApp $ case cmd of
     FilterCmd path -> do
       result <- filterTranscriptFile path
-      liftIO $ TIO.hPutStr stdout result
+      hPutBuilder stdout (getUtf8Builder (display result))
     RecordEventCmd tag txt source -> do
       mPath <- liftIO $ lookupEnv "SESSION_EVENTS_FILE"
       case mPath of

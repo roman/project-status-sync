@@ -65,8 +65,6 @@ executable ccs
     , ccs
     , optparse-applicative
     , rio
-    , text
-    , time
 
 test-suite ccs-test
   import:           warnings, extensions
@@ -86,4 +84,3 @@ test-suite ccs-test
     , tasty-hunit
     , random
     , tasty-quickcheck
-    , time

@@ -13,7 +13,6 @@ import RIO
 import RIO.Text qualified as T
 
 import CCS.Signal (SignalPayload (..), readSignal)
-import Data.Time.Clock (NominalDiffTime, UTCTime, diffUTCTime, getCurrentTime)
 import GHC.IO.Handle.Lock (LockMode (..), hTryLock)
 import RIO.Directory (
   doesDirectoryExist,
@@ -23,6 +22,7 @@ import RIO.Directory (
  )
 import RIO.FilePath (takeBaseName, takeExtension, (</>))
 import RIO.List.Partial (maximum)
+import RIO.Time (NominalDiffTime, UTCTime, diffUTCTime, getCurrentTime)
 
 newtype SessionId = SessionId Text
   deriving stock (Eq, Ord, Show)
