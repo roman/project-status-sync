@@ -55,7 +55,10 @@ import CCS.Filter (
  )
 import CCS.Process (
   EventLogEntry (..),
+  formatEventsInput,
   parseExtractionOutput,
+  parseTopicSlug,
+  stripTopicLine,
  )
 import CCS.Project (
   ProjectKey (..),
@@ -532,6 +535,50 @@ processTests =
                       |]
                     val @?= expected
                   Nothing -> assertFailure "failed to decode"
+        ]
+    , testGroup
+        "parseTopicSlug"
+        [ testCase "extracts slug from TOPIC: line"
+            $ parseTopicSlug "some markdown\n\nTOPIC: auth-middleware\n"
+            @?= Just "auth-middleware"
+        , testCase "handles leading whitespace"
+            $ parseTopicSlug "  TOPIC: my-topic  \n"
+            @?= Just "my-topic"
+        , testCase "returns Nothing when no TOPIC line"
+            $ parseTopicSlug "just some text\nno topic here\n"
+            @?= Nothing
+        , testCase "returns Nothing for empty slug"
+            $ parseTopicSlug "TOPIC: \n"
+            @?= Nothing
+        , testCase "takes first TOPIC line"
+            $ parseTopicSlug "TOPIC: first\nTOPIC: second\n"
+            @?= Just "first"
+        ]
+    , testGroup
+        "formatEventsInput"
+        [ testCase "formats events as bracketed lines"
+            $ let
+                events =
+                  [ SessionEvent (EventTag "decision") "chose X" (EventSource "conversation")
+                  , SessionEvent (EventTag "next") "do Y" (EventSource "conversation")
+                  ]
+              in
+                formatEventsInput events @?= "[decision] chose X\n[next] do Y\n"
+        , testCase "empty events produces empty output"
+            $ formatEventsInput []
+            @?= ""
+        ]
+    , testGroup
+        "stripTopicLine"
+        [ testCase "removes TOPIC: line from output"
+            $ stripTopicLine "# Handoff\n\nSome content\n\nTOPIC: my-topic\n"
+            @?= "# Handoff\n\nSome content\n\n"
+        , testCase "preserves content when no TOPIC line"
+            $ stripTopicLine "just text\nno topic\n"
+            @?= "just text\nno topic\n"
+        , testCase "handles TOPIC: with leading whitespace"
+            $ stripTopicLine "content\n  TOPIC: slug\n"
+            @?= "content\n"
         ]
     ]
 

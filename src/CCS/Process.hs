@@ -1,8 +1,12 @@
 module CCS.Process (
   EventLogEntry (..),
   ProcessConfig (..),
+  formatEventsInput,
   parseExtractionOutput,
+  parseTopicSlug,
   processSession,
+  runLLMPrompt,
+  stripTopicLine,
 ) where
 
 import RIO
@@ -19,12 +23,14 @@ import Data.Aeson (FromJSON (..), ToJSON (..), object, withObject, (.:), (.=))
 
 import RIO.Directory (createDirectoryIfMissing)
 import RIO.FilePath ((</>))
-import RIO.Time (Day, getCurrentTime, utctDay)
+import RIO.Time (Day, UTCTime (..), getCurrentTime, utctDay)
 import System.Process.Typed (byteStringInput, proc, readProcess, setStdin)
 
 data ProcessConfig = ProcessConfig
   { pcOutputDir :: !FilePath
   , pcPromptFile :: !FilePath
+  , pcHandoffPrompt :: !(Maybe FilePath)
+  , pcProgressPrompt :: !(Maybe FilePath)
   , pcCommand :: !FilePath
   , pcCommandArgs :: ![String]
   }
@@ -101,12 +107,62 @@ parseExtractionOutput =
             _ -> Nothing
         _ -> Nothing
 
+formatEventsInput :: [SessionEvent] -> Text
+formatEventsInput = T.unlines . map formatEvent
+ where
+  formatEvent SessionEvent{..} =
+    let
+      EventTag tag = eventTag
+    in
+      "[" <> tag <> "] " <> eventText
+
+parseTopicSlug :: Text -> Maybe Text
+parseTopicSlug =
+  listToMaybe . mapMaybe extractTopic . T.lines
+ where
+  extractTopic line =
+    case T.stripPrefix "TOPIC:" (T.strip line) of
+      Just rest ->
+        let
+          slug = T.strip rest
+        in
+          if T.null slug then Nothing else Just slug
+      Nothing -> Nothing
+
+runLLMPrompt
+  :: HasLogFunc env
+  => ProcessConfig
+  -> FilePath
+  -> Text
+  -> RIO env (Maybe Text)
+runLLMPrompt ProcessConfig{..} promptPath inputText = do
+  promptBytes <- readFileBinary promptPath
+  let
+    promptText = T.decodeUtf8With T.lenientDecode promptBytes
+    fullInput = T.encodeUtf8 $ promptText <> "\n" <> inputText
+    processConfig =
+      setStdin (byteStringInput (fromStrictBytes fullInput))
+        $ proc pcCommand pcCommandArgs
+
+  (exitCode, outBs, errBs) <- readProcess processConfig
+
+  let
+    out = T.decodeUtf8With T.lenientDecode (toStrictBytes outBs)
+    err = T.decodeUtf8With T.lenientDecode (toStrictBytes errBs)
+
+  case exitCode of
+    ExitFailure code -> do
+      logError $ "LLM command failed (exit " <> display code <> ")"
+      unless (T.null err) $ logError $ "stderr: " <> display err
+      pure Nothing
+    ExitSuccess -> pure (Just out)
+
 processSession
   :: HasLogFunc env
   => ProcessConfig
   -> AvailabilitySignal
   -> RIO env ()
-processSession ProcessConfig{..} signal = do
+processSession config@ProcessConfig{..} signal = do
   let
     SessionId sid = asSessionId signal
 
@@ -116,55 +172,145 @@ processSession ProcessConfig{..} signal = do
   if T.null filtered
     then logWarn $ "Empty transcript after filtering for session " <> display sid
     else do
-      promptBytes <- readFileBinary pcPromptFile
-      let
-        promptText = T.decodeUtf8With T.lenientDecode promptBytes
-        fullPrompt = T.encodeUtf8 $ promptText <> "\n" <> filtered
-        processConfig =
-          setStdin (byteStringInput (fromStrictBytes fullPrompt))
-            $ proc pcCommand pcCommandArgs
-
       logInfo $ "Running extraction for session " <> display sid
-      (exitCode, outBs, errBs) <- readProcess processConfig
+      mOut <- runLLMPrompt config pcPromptFile filtered
 
-      let
-        out = T.decodeUtf8With T.lenientDecode (toStrictBytes outBs)
-        err = T.decodeUtf8With T.lenientDecode (toStrictBytes errBs)
-
-      case exitCode of
-        ExitFailure code -> do
-          logError
-            $ "Extraction command failed (exit "
-            <> display code
-            <> ") for session "
-            <> display sid
-          unless (T.null err)
-            $ logError
-            $ "stderr: "
-            <> display err
-        ExitSuccess -> do
+      case mOut of
+        Nothing ->
+          logError $ "Extraction failed for session " <> display sid
+        Just out -> do
           let
             events = parseExtractionOutput out
           logInfo $ "Extracted " <> display (length events) <> " event(s) for session " <> display sid
 
           project <- identifyProject (asProjectPath signal)
+          now <- liftIO getCurrentTime
 
-          today <- liftIO $ utctDay <$> getCurrentTime
           let
-            mkEntry day proj event =
+            today = utctDay now
+            mkEntry event =
               EventLogEntry
-                { eleDate = day
+                { eleDate = today
                 , eleSessionId = asSessionId signal
-                , eleProjectKey = projectKey proj
-                , eleProjectName = projectName proj
+                , eleProjectKey = projectKey project
+                , eleProjectName = projectName project
                 , eleEvent = event
                 }
             ProjectName pname = projectName project
-            eventsDir = pcOutputDir </> T.unpack pname
-            eventsFile = eventsDir </> "EVENTS.jsonl"
+            projectDir = pcOutputDir </> T.unpack pname
+            eventsFile = projectDir </> "EVENTS.jsonl"
 
-          createDirectoryIfMissing True eventsDir
+          createDirectoryIfMissing True projectDir
 
           let
-            entries = map (mkEntry today project) events
+            entries = map mkEntry events
           mapM_ (appendJsonLine eventsFile) entries
+
+          generateHandoff config signal events today projectDir
+          generateProgressEntry config signal events now projectDir
+
+generateHandoff
+  :: HasLogFunc env
+  => ProcessConfig
+  -> AvailabilitySignal
+  -> [SessionEvent]
+  -> Day
+  -> FilePath
+  -> RIO env ()
+generateHandoff config signal events today projectDir = do
+  let
+    SessionId sid = asSessionId signal
+  case pcHandoffPrompt config of
+    Nothing -> pure ()
+    Just promptPath
+      | null events ->
+          logDebug $ "No events for handoff, skipping session " <> display sid
+      | otherwise -> do
+          let
+            sessionPrefix = T.take 8 sid
+            metadata =
+              "Project session metadata:\n"
+                <> "Date: "
+                <> T.pack (show today)
+                <> "\n"
+                <> "Session: "
+                <> sid
+                <> "\n\n"
+            eventsText = formatEventsInput events
+            input = metadata <> eventsText
+
+          logInfo $ "Running handoff generation for session " <> display sid
+          mOut <- runLLMPrompt config promptPath input
+          case mOut of
+            Nothing ->
+              logWarn $ "Handoff generation failed for session " <> display sid
+            Just out -> do
+              let
+                topic = fromMaybe "session-work" (parseTopicSlug out)
+                handoffDir = projectDir </> "handoffs"
+                filename =
+                  T.unpack
+                    $ T.pack (show today)
+                    <> "-"
+                    <> sessionPrefix
+                    <> "-"
+                    <> topic
+                    <> ".md"
+                handoffPath = handoffDir </> filename
+                content = stripTopicLine out
+
+              createDirectoryIfMissing True handoffDir
+              writeFileBinary handoffPath (T.encodeUtf8 content)
+              logInfo $ "Wrote handoff: " <> fromString filename
+
+generateProgressEntry
+  :: HasLogFunc env
+  => ProcessConfig
+  -> AvailabilitySignal
+  -> [SessionEvent]
+  -> UTCTime
+  -> FilePath
+  -> RIO env ()
+generateProgressEntry config signal events now projectDir = do
+  let
+    SessionId sid = asSessionId signal
+  case pcProgressPrompt config of
+    Nothing -> pure ()
+    Just promptPath
+      | null events ->
+          logDebug $ "No events for progress, skipping session " <> display sid
+      | otherwise -> do
+          let
+            sessionPrefix = T.take 8 sid
+            metadata =
+              "Session metadata:\n"
+                <> "Date: "
+                <> T.pack (show (utctDay now))
+                <> "\n"
+                <> "Session prefix: "
+                <> sessionPrefix
+                <> "\n\n"
+            eventsText = formatEventsInput events
+            input = metadata <> eventsText
+
+          logInfo $ "Running progress entry for session " <> display sid
+          mOut <- runLLMPrompt config promptPath input
+          case mOut of
+            Nothing ->
+              logWarn $ "Progress entry generation failed for session " <> display sid
+            Just out -> do
+              let
+                entry = T.strip out
+                progressFile = projectDir </> "progress.log"
+              unless (T.null entry) $ do
+                liftIO
+                  $ withBinaryFile progressFile AppendMode
+                  $ \h ->
+                    hPutBuilder h (getUtf8Builder (display entry <> "\n"))
+                logInfo $ "Appended progress entry for session " <> display sid
+
+stripTopicLine :: Text -> Text
+stripTopicLine =
+  T.unlines . filter (not . isTopicLine) . T.lines
+ where
+  isTopicLine line = "TOPIC:" `T.isPrefixOf` T.strip line

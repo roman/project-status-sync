@@ -41,7 +41,7 @@ import System.Environment (lookupEnv)
 data Command
   = FilterCmd !FilePath
   | RecordEventCmd !EventTag !Text !EventSource
-  | AggregateCmd !FilePath !Int !FilePath !FilePath
+  | AggregateCmd !FilePath !Int !FilePath !FilePath !(Maybe FilePath) !(Maybe FilePath)
 
 main :: IO ()
 main = do
@@ -58,13 +58,15 @@ main = do
           exitFailure
         Just path ->
           appendEvent path SessionEvent{eventTag = tag, eventText = txt, eventSource = source}
-    AggregateCmd signalDir quietMins outputDir promptFile -> do
+    AggregateCmd signalDir quietMins outputDir promptFile handoffPrompt progressPrompt -> do
       let
         threshold = secondsToNominalDiffTime (fromIntegral quietMins * 60)
         config =
           ProcessConfig
             { pcOutputDir = outputDir
             , pcPromptFile = promptFile
+            , pcHandoffPrompt = handoffPrompt
+            , pcProgressPrompt = progressPrompt
             , pcCommand = "claude"
             , pcCommandArgs = ["-p"]
             }
@@ -116,6 +118,8 @@ aggregateParser =
     <*> option auto (long "quiet-minutes" <> metavar "N" <> value 20 <> help "Quiet period in minutes (default: 20)")
     <*> option str (long "output-dir" <> metavar "DIR" <> help "Output directory for EVENTS.jsonl")
     <*> option str (long "prompt-file" <> metavar "FILE" <> help "Path to extraction prompt file")
+    <*> optional (option str (long "handoff-prompt" <> metavar "FILE" <> help "Path to handoff generation prompt file"))
+    <*> optional (option str (long "progress-prompt" <> metavar "FILE" <> help "Path to progress entry prompt file"))
 
 versionOpt :: Parser (a -> a)
 versionOpt =
