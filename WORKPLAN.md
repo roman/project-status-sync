@@ -28,7 +28,7 @@
 | 1 | Capture: hooks + signals | DONE (verify build) | — |
 | 2a | Tooling: pre-filter, record-event, aggregation | DONE (verify build) | Infra, Phase 1 (signal format) |
 | 2b | Prompts: extraction, handoff, progress, synthesis | DONE | Infra |
-| 2c | Integration: wire everything together | PENDING | 1, 2a, 2b |
+| 2c | Integration: wire everything together | IN PROGRESS | 1, 2a, 2b |
 | 3 | Status & Handoffs: generate outputs | PENDING | 2c |
 | 4 | Retrieval: context injection (optional) | DEFERRED | 3 |
 | 5 | Archival: manage EVENTS.jsonl growth | DEFERRED | 4 |
@@ -450,8 +450,11 @@ See:
 
 ### Progress
 
-- [ ] 2c.1: Aggregation job completion
+- [x] 2c.1: Aggregation job completion
 - [ ] 2c.2: End-to-end testing
+
+See:
+- `notes/handoffs/2026-03-08-aggregation-pipeline-wiring.md`
 
 ---
 

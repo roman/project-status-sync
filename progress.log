@@ -48,3 +48,4 @@
 2026-03-06 12:00 [36006ba6] — Phase 2a.4: aggregation job skeleton (CCS.Aggregate, signal discovery, quiet period, locking, CLI wiring, tests, devenv fix)
 2026-03-07 00:00 [020bc993] — Fix: resolve RIO compat issues in Aggregate (maximum, openBinaryFile) and test isolation (random temp dirs, pattern matching over partial head)
 2026-03-08 00:00 [d2e8ed3c] — Phase 2b.1: refined extraction prompt (thinking blocks, signal-to-noise, tag definitions)
+2026-03-08 07:38 [f9788cf1] — Phase 2c.1: wire aggregation pipeline (CCS.Process, EventLogEntry, parseExtractionOutput, processSession)

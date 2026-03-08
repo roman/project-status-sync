@@ -6,6 +6,7 @@ import CCS (version)
 import CCS.Aggregate (AggregateResult (..), runAggregation)
 import CCS.Event (EventSource (..), EventTag (..), SessionEvent (..), appendEvent)
 import CCS.Filter (filterTranscriptFile)
+import CCS.Process (ProcessConfig (..), processSession)
 import RIO.Text qualified as T
 
 import Data.Text.IO qualified as TIO
@@ -34,11 +35,12 @@ import Options.Applicative (
   value,
   (<**>),
  )
+import System.Environment (lookupEnv)
 
 data Command
   = FilterCmd !FilePath
   | RecordEventCmd !EventTag !Text !EventSource
-  | AggregateCmd !FilePath !Int
+  | AggregateCmd !FilePath !Int !FilePath !FilePath
 
 main :: IO ()
 main = do
@@ -55,11 +57,17 @@ main = do
           exitFailure
         Just path ->
           appendEvent path SessionEvent{eventTag = tag, eventText = txt, eventSource = source}
-    AggregateCmd signalDir quietMins -> do
+    AggregateCmd signalDir quietMins outputDir promptFile -> do
       let
         threshold = secondsToNominalDiffTime (fromIntegral quietMins * 60)
-      result <- runAggregation signalDir threshold $ \signal ->
-        logInfo $ "Would process: " <> displayShow signal
+        config =
+          ProcessConfig
+            { pcOutputDir = outputDir
+            , pcPromptFile = promptFile
+            , pcCommand = "claude"
+            , pcCommandArgs = ["-p"]
+            }
+      result <- runAggregation signalDir threshold (processSession config)
       case result of
         AggregatedSessions n ->
           logInfo $ "Processed " <> display n <> " session(s)"
@@ -105,6 +113,8 @@ aggregateParser =
   AggregateCmd
     <$> option str (long "signal-dir" <> metavar "DIR" <> help "Directory containing .available signal files")
     <*> option auto (long "quiet-minutes" <> metavar "N" <> value 20 <> help "Quiet period in minutes (default: 20)")
+    <*> option str (long "output-dir" <> metavar "DIR" <> help "Output directory for EVENTS.jsonl")
+    <*> option str (long "prompt-file" <> metavar "FILE" <> help "Path to extraction prompt file")
 
 versionOpt :: Parser (a -> a)
 versionOpt =

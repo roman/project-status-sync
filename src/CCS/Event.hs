@@ -3,6 +3,7 @@ module CCS.Event (
   EventSource (..),
   SessionEvent (..),
   appendEvent,
+  appendJsonLine,
 ) where
 
 import RIO
@@ -44,8 +45,11 @@ instance FromJSON SessionEvent where
       <*> o
       .: "source"
 
-appendEvent :: MonadIO m => FilePath -> SessionEvent -> m ()
-appendEvent path event = liftIO
+appendJsonLine :: (MonadIO m, ToJSON a) => FilePath -> a -> m ()
+appendJsonLine path val = liftIO
   $ withBinaryFile path AppendMode
   $ \h ->
-    LBS.hPut h (Aeson.encode event <> "\n")
+    LBS.hPut h (Aeson.encode val <> "\n")
+
+appendEvent :: MonadIO m => FilePath -> SessionEvent -> m ()
+appendEvent = appendJsonLine

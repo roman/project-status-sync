@@ -49,7 +49,13 @@ import CCS.Filter (
   formatContent,
   formatEntry,
  )
+import CCS.Process (
+  EventLogEntry (..),
+  parseExtractionOutput,
+ )
 import CCS.Project (
+  ProjectKey (..),
+  ProjectName (..),
   deriveName,
   normalizeRemoteUrl,
   stripDotGit,
@@ -70,6 +76,7 @@ tests =
     , projectTests
     , filterTests
     , aggregateTests
+    , processTests
     , propertyTests
     ]
 
@@ -412,6 +419,120 @@ createTempSignalDir base = do
   pure (dir, cleanup)
 
 -- ---------------------------------------------------------------------------
+-- Process tests
+-- ---------------------------------------------------------------------------
+
+processTests :: TestTree
+processTests =
+  testGroup
+    "Process"
+    [ testGroup
+        "parseExtractionOutput"
+        [ testCase "parses valid event lines"
+            $ let
+                input = "[decision] chose X over Y\n[next] implement Z\n"
+                events = parseExtractionOutput input
+              in
+                length events @?= 2
+        , testCase "extracts tag and text"
+            $ let
+                events = parseExtractionOutput "[blocker] waiting on API\n"
+              in
+                case events of
+                  [e] -> do
+                    eventTag e @?= EventTag "blocker"
+                    eventText e @?= "waiting on API"
+                  _ -> assertFailure "expected exactly one event"
+        , testCase "skips blank lines"
+            $ let
+                input = "[decision] chose X\n\n[next] do Y\n"
+                events = parseExtractionOutput input
+              in
+                length events @?= 2
+        , testCase "skips non-event lines"
+            $ let
+                input = "some random text\n[decision] real event\nmore noise\n"
+                events = parseExtractionOutput input
+              in
+                length events @?= 1
+        , testCase "handles empty input"
+            $ parseExtractionOutput ""
+            @?= []
+        , testCase "sets source to conversation"
+            $ let
+                events = parseExtractionOutput "[context] some info\n"
+              in
+                case events of
+                  [e] -> eventSource e @?= EventSource "conversation"
+                  _ -> assertFailure "expected one event"
+        , testCase "rejects empty tag"
+            $ parseExtractionOutput "[] some text\n"
+            @?= []
+        , testCase "rejects empty text"
+            $ parseExtractionOutput "[decision] \n"
+            @?= []
+        , testCase "handles leading whitespace"
+            $ let
+                events = parseExtractionOutput "  [next] trim me\n"
+              in
+                length events @?= 1
+        ]
+    , testGroup
+        "EventLogEntry"
+        [ testCase "JSON round-trip"
+            $ let
+                entry =
+                  EventLogEntry
+                    { eleDate = fromGregorian 2026 3 8
+                    , eleSessionId = SessionId "abc123"
+                    , eleProjectKey = ProjectKey "github.com/user/repo"
+                    , eleProjectName = ProjectName "repo"
+                    , eleEvent =
+                        SessionEvent
+                          { eventTag = EventTag "decision"
+                          , eventText = "use X over Y"
+                          , eventSource = EventSource "conversation"
+                          }
+                    }
+              in
+                decode (encode entry) @?= Just entry
+        , testCase "matches expected JSON format"
+            $ let
+                entry =
+                  EventLogEntry
+                    { eleDate = fromGregorian 2026 2 27
+                    , eleSessionId = SessionId "abc123"
+                    , eleProjectKey = ProjectKey "git.musta.ch/airbnb/ergo"
+                    , eleProjectName = ProjectName "ergo"
+                    , eleEvent =
+                        SessionEvent
+                          { eventTag = EventTag "decision"
+                          , eventText = "use launchd over systemd"
+                          , eventSource = EventSource "conversation"
+                          }
+                    }
+                decoded = decode (encode entry) :: Maybe Value
+              in
+                case decoded of
+                  Just val -> do
+                    let
+                      expected =
+                        [aesonQQ|
+                        { "date": "2026-02-27"
+                        , "session": "abc123"
+                        , "project": "ergo"
+                        , "project_key": "git.musta.ch/airbnb/ergo"
+                        , "tag": "decision"
+                        , "text": "use launchd over systemd"
+                        , "source": "conversation"
+                        }
+                      |]
+                    val @?= expected
+                  Nothing -> assertFailure "failed to decode"
+        ]
+    ]
+
+-- ---------------------------------------------------------------------------
 -- QuickCheck generators
 -- ---------------------------------------------------------------------------
 
@@ -530,6 +651,7 @@ propertyTests =
     , testGroup "Event" eventProps
     , testGroup "Signal" signalProps
     , testGroup "Filter" filterProps
+    , testGroup "Process" processProps
     ]
 
 normalizeRemoteUrlProps :: [TestTree]
@@ -632,4 +754,27 @@ filterProps =
         result = filterTranscript (LBS.pack bs)
       in
         T.length result `seq` True
+  ]
+
+processProps :: [TestTree]
+processProps =
+  [ testProperty "parses well-formed [tag] text lines" $ \(event :: SessionEvent) ->
+      let
+        EventTag tag = eventTag event
+        line = "[" <> tag <> "] " <> eventText event
+        parsed = parseExtractionOutput line
+      in
+        length parsed === 1
+  , testProperty "EventLogEntry JSON round-trip" $ \(event :: SessionEvent) ->
+      let
+        entry =
+          EventLogEntry
+            { eleDate = fromGregorian 2026 1 1
+            , eleSessionId = SessionId "test-session"
+            , eleProjectKey = ProjectKey "test/key"
+            , eleProjectName = ProjectName "test"
+            , eleEvent = event
+            }
+      in
+        decode (encode entry) === Just entry
   ]

@@ -38,6 +38,7 @@ library
     CCS.Aggregate
     CCS.Event
     CCS.Filter
+    CCS.Process
     CCS.Project
     CCS.Signal
   other-modules:    Paths_ccs
@@ -64,6 +65,7 @@ executable ccs
     , optparse-applicative
     , rio
     , text
+    , time
 
 test-suite ccs-test
   import:           warnings, extensions
