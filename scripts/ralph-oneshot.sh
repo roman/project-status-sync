@@ -5,7 +5,7 @@
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-TIMEOUT="${2:-600}"
+TIMEOUT="${2:-1200}"
 
 if ! command -v claude-headless &>/dev/null; then
     echo "ERROR: claude-headless not in PATH. Run: nix develop --impure" >&2

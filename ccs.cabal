@@ -81,5 +81,6 @@ test-suite ccs-test
     , rio
     , tasty
     , tasty-hunit
+    , random
     , tasty-quickcheck
     , time

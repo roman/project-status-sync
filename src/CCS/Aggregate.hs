@@ -12,6 +12,8 @@ module CCS.Aggregate (
 import RIO
 import RIO.Text qualified as T
 
+import Data.List (maximum)
+
 import CCS.Signal (SignalPayload (..), readSignal)
 import Data.Time.Clock (NominalDiffTime, UTCTime, diffUTCTime, getCurrentTime)
 import GHC.IO.Handle.Lock (LockMode (..), hTryLock)
@@ -93,7 +95,7 @@ withLockFile lockPath action =
       Just h -> Just <$> action
  where
   openLock path = do
-    h <- openBinaryFile path AppendMode
+    h <- openFile path AppendMode
     acquired <- hTryLock h ExclusiveLock
     if acquired
       then pure (Just h)

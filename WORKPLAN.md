@@ -352,7 +352,7 @@ See:
 - [x] 2a.1: Pre-filter as library function
 - [x] 2a.2: CLI scaffolding
 - [x] 2a.3: record-event tool
-- [x] 2a.4: Aggregation job skeleton (needs build verification outside sandbox)
+- [x] 2a.4: Aggregation job skeleton (build verified, RIO compat fixes applied)
 
 See:
 - `notes/handoffs/2026-03-06-pre-filter-library.md`

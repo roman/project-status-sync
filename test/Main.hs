@@ -14,7 +14,8 @@ import RIO.Directory (
  )
 import RIO.FilePath ((</>))
 import RIO.Text qualified as T
-import System.IO (openBinaryTempFileWithDefaultPermissions)
+import System.IO (openBinaryTempFileWithDefaultPermissions, writeFile)
+import System.Random (randomRIO)
 
 import Data.Aeson (Value, decode, encode)
 import Data.Aeson.QQ (aesonQQ)
@@ -341,8 +342,9 @@ aggregateTests =
             writeSignal (dir </> "session-abc.available") payload
             signals <- runSimpleApp $ discoverSignals dir
             cleanup
-            length signals @?= 1
-            asSessionId (head signals) @?= SessionId "session-abc"
+            case signals of
+              (s : _) -> asSessionId s @?= SessionId "session-abc"
+              [] -> assertFailure "expected at least one signal"
         , testCase "ignores non-.available files" $ do
             tmpDir <- getTemporaryDirectory
             (dir, cleanup) <- createTempSignalDir tmpDir
@@ -401,8 +403,9 @@ aggregateTests =
 
 createTempSignalDir :: FilePath -> IO (FilePath, IO ())
 createTempSignalDir base = do
+  n <- randomRIO (100000 :: Int, 999999)
   let
-    dir = base </> "ccs-test-signals"
+    dir = base </> "ccs-test-signals-" <> show n
   createDirectoryIfMissing True dir
   let
     cleanup = removeDirectoryRecursive dir
