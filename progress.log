@@ -47,3 +47,4 @@
 2026-03-05 23:00 [9878df7a] — Infra: custom claude-headless-ccs with Haskell dev tools so ralph can run cabal test
 2026-03-06 12:00 [36006ba6] — Phase 2a.4: aggregation job skeleton (CCS.Aggregate, signal discovery, quiet period, locking, CLI wiring, tests, devenv fix)
 2026-03-07 00:00 [020bc993] — Fix: resolve RIO compat issues in Aggregate (maximum, openBinaryFile) and test isolation (random temp dirs, pattern matching over partial head)
+2026-03-08 00:00 [d2e8ed3c] — Phase 2b.1: refined extraction prompt (thinking blocks, signal-to-noise, tag definitions)

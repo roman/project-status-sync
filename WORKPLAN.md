@@ -27,7 +27,7 @@
 | 0 | Spike: validate extraction approach | PARTIAL | — |
 | 1 | Capture: hooks + signals | DONE (verify build) | — |
 | 2a | Tooling: pre-filter, record-event, aggregation | DONE (verify build) | Infra, Phase 1 (signal format) |
-| 2b | Prompts: extraction, handoff, progress, synthesis | PARTIAL | Infra |
+| 2b | Prompts: extraction, handoff, progress, synthesis | DONE | Infra |
 | 2c | Integration: wire everything together | PENDING | 1, 2a, 2b |
 | 3 | Status & Handoffs: generate outputs | PENDING | 2c |
 | 4 | Retrieval: context injection (optional) | DEFERRED | 3 |
@@ -408,12 +408,14 @@ See:
 ### Progress
 
 - [x] Extraction prompt exists (needs refinement in 2b.1)
-- [ ] 2b.1: Extraction prompt refinement
+- [x] 2b.1: Extraction prompt refinement
 - [x] 2b.2: Synthesis prompt (`prompts/status-synthesis.md`)
 - [x] 2b.3: Handoff generation prompt (`prompts/handoff-generation.md`)
 - [x] 2b.4: Progress entry prompt (`prompts/progress-entry.md`)
 
-See: `notes/handoffs/2026-03-03-prompts-and-commit-discipline.md`
+See:
+- `notes/handoffs/2026-03-03-prompts-and-commit-discipline.md`
+- `notes/handoffs/2026-03-08-extraction-prompt-refinement.md`
 
 ---
 
