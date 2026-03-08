@@ -27,9 +27,9 @@
 | 0 | Spike: validate extraction approach | PARTIAL | — |
 | 1 | Capture: hooks + signals | DONE (verify build) | — |
 | 2a | Tooling: pre-filter, record-event, aggregation | DONE (verify build) | Infra, Phase 1 (signal format) |
-| 2b | Prompts: extraction, handoff, progress, synthesis | DONE | Infra |
-| 2c | Integration: wire everything together | IN PROGRESS | 1, 2a, 2b |
-| 3 | Status & Handoffs: generate outputs | IN PROGRESS | 2c |
+| 2b | Prompts: extraction, handoff, progress, synthesis | **DONE** | Infra |
+| 2c | Integration: wire everything together | **PARTIAL** (2c.1 done, 2c.2 pending) | 1, 2a, 2b |
+| 3 | Status & Handoffs: generate outputs | **PARTIAL** (3.1+3.2 done, 3.3 pending) | 2c |
 | 4 | Retrieval: context injection (optional) | DEFERRED | 3 |
 | 5 | Archival: manage EVENTS.jsonl growth | DEFERRED | 4 |
 
@@ -427,7 +427,7 @@ See:
 
 - [ ] End-to-end: session ends → EVENTS.jsonl updated
 - [ ] Aggregation job invokes extraction prompt correctly
-- [ ] record-event subprocess pattern works
+- [ ] ~~record-event subprocess pattern works~~ (replaced by stdout parsing — see 2c.1 handoff)
 
 ### Chunks
 
@@ -452,6 +452,11 @@ See:
 
 - [x] 2c.1: Aggregation job completion
 - [ ] 2c.2: End-to-end testing
+
+**Pending refactors** (from process review):
+- [ ] Extract `AggregateConfig` record from `AggregateCmd` (6 positional fields → named record)
+- [ ] Proposal needed: `Maybe FilePath` in `ProcessConfig` — are handoff/progress prompts truly optional or a configuration error? See `notes/proposals/` when written.
+- [ ] Update `docs/design.md` to reflect stdout-parsing approach (currently documents record-event subprocess)
 
 See:
 - `notes/handoffs/2026-03-08-aggregation-pipeline-wiring.md`
@@ -621,3 +626,24 @@ See:
 - Format: `YYYY-MM-DD HH:MM [<8-char-prefix>] — Phase X.Y: description`
 
 See: `notes/handoffs/2026-03-03-session-tracking.md`
+
+---
+
+## Supplementary: Ralph Loop Protocol
+
+**Goal**: Role-aware headless sessions that triage work before executing.
+
+### Implementation
+
+- Protocol defined in `RALPH.md`
+- Triage step spawns `product-owner` agent to determine session role
+- Four roles: PM, Architect, Implementer, Reviewer
+- Decision protocol elevates domain decisions to proposals instead of inline execution
+
+### Key Rules
+
+- Domain decisions (Maybe in ADTs, >3 positional fields, pattern changes) → proposal, not implementation
+- PM role prioritized when WORKPLAN is stale
+- Only Implementer role loads haskell-development-skill and touches `src/`
+
+See: `notes/handoffs/2026-03-08-ralph-role-protocol.md`

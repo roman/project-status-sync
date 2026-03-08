@@ -50,3 +50,4 @@
 2026-03-08 00:00 [d2e8ed3c] — Phase 2b.1: refined extraction prompt (thinking blocks, signal-to-noise, tag definitions)
 2026-03-08 07:38 [f9788cf1] — Phase 2c.1: wire aggregation pipeline (CCS.Process, EventLogEntry, parseExtractionOutput, processSession)
 2026-03-08 19:30 [3732bb51] — Phase 3.1+3.2: wire handoff + progress prompts into processSession pipeline
+2026-03-08 13:02 [821f18cf] — Process: add role-based triage to ralph loop, reconcile WORKPLAN phase statuses

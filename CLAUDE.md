@@ -2,15 +2,16 @@
 
 ## Before You Start (MANDATORY)
 
-**Load the `haskell-development-skill`** via the Skill tool before writing any Haskell code.
-
 **Read [`WORKPLAN.md`](WORKPLAN.md) FIRST.** Do not write any code until you have:
 
-1. Loaded the `haskell-development-skill`
-2. Read WORKPLAN.md completely
-3. Identified the current phase and its status
-4. Found the most recent handoff notes
-5. Determined what work to pick up next
+1. Read WORKPLAN.md completely
+2. Identified the current phase and its status
+3. Found the most recent handoff notes
+4. Determined what work to pick up next
+
+**Load the `haskell-development-skill`** via the Skill tool before writing any Haskell code.
+This is a gate on code writing, not on session start — sessions that only update docs or
+reconcile WORKPLAN do not need to load it.
 
 WORKPLAN.md is the single source of truth for:
 - Current phase and status
@@ -22,20 +23,21 @@ Session handoff notes live in [`notes/handoffs/`](notes/handoffs/). WORKPLAN.md 
 
 **TRIGGER**: When user says "commit", "please commit", or "commit the changes":
 1. STOP — do not run `git commit` yet
-2. First update: WORKPLAN.md, progress.log, handoff doc
+2. First update relevant docs (see tiers below)
 3. Then stage ALL files together
 4. Then commit
 
-**Every commit includes:**
+**Documentation tiers by commit type:**
 
-1. **Code changes** — the actual implementation
-2. **WORKPLAN.md** — update progress checkboxes, phase status
-3. **progress.log** — append a timestamped entry
-4. **Handoff document** — create/update `notes/handoffs/YYYY-MM-DD-topic.md`
+- **Implementation commits** (touches `src/` or `app/`): WORKPLAN.md + progress.log + handoff doc — all four required
+- **Doc-only commits** (WORKPLAN reconciliation, design.md updates): WORKPLAN.md + progress.log
+- **Research commits** (notes, proposals): progress.log entry
 
-This is not optional. A commit without documentation updates is incomplete.
+A commit without its tier's documentation updates is incomplete.
 
-## Code Review Before Every Commit (NON-NEGOTIABLE)
+## Code Review Before Every Code Commit (NON-NEGOTIABLE)
+
+Applies to commits that touch `src/`, `app/`, or `test/`. Doc-only commits skip this.
 
 After implementation and before committing:
 
@@ -45,7 +47,7 @@ After implementation and before committing:
 4. Do not loop more than twice — ship it after two rounds of fixes.
 
 ```bash
-# Correct workflow:
+# Correct workflow (implementation commits):
 1. Make code changes
 2. Run `cabal test` — do not proceed if tests fail
 3. Spawn code-critic agent to review changes (address blocker/major issues, max 2 rounds)
