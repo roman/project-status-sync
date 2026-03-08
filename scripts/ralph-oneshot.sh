@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # Run a single RALPH session in the bubblewrap sandbox with monitoring.
-# Requires: nix develop --impure (claude-headless must be in PATH)
+# Requires: nix develop --impure (claude-headless-css must be in PATH)
 # Usage: ./scripts/ralph-test.sh [prompt] [timeout]
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 TIMEOUT="${2:-1200}"
 
-if ! command -v claude-headless &>/dev/null; then
-    echo "ERROR: claude-headless not in PATH. Run: nix develop --impure" >&2
+if ! command -v claude-headless-ccs &>/dev/null; then
+    echo "ERROR: claude-headless-ccs not in PATH. Run: nix develop --impure" >&2
     exit 1
 fi
 
@@ -90,7 +90,7 @@ echo "Project: $PROJECT_DIR"
 echo "---"
 
 cd "$PROJECT_DIR"
-env -u CLAUDECODE claude-headless . > $PROJECT_DIR/tmp/ralph-oneshot.log 2>&1 &
+env -u CLAUDECODE claude-headless-ccs . > "$PROJECT_DIR/tmp/ralph-oneshot.log" 2>&1 &
 SANDBOX_PID=$!
 
 cleanup() {
