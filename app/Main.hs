@@ -38,10 +38,19 @@ import RIO.Time (secondsToNominalDiffTime)
 -- System.Environment: RIO does not re-export lookupEnv
 import System.Environment (lookupEnv)
 
+data AggregateConfig = AggregateConfig
+  { acSignalDir :: !FilePath
+  , acQuietMinutes :: !Int
+  , acOutputDir :: !FilePath
+  , acPromptFile :: !FilePath
+  , acHandoffPrompt :: !FilePath
+  , acProgressPrompt :: !FilePath
+  }
+
 data Command
   = FilterCmd !FilePath
   | RecordEventCmd !EventTag !Text !EventSource
-  | AggregateCmd !FilePath !Int !FilePath !FilePath !FilePath !FilePath
+  | AggregateCmd !AggregateConfig
 
 main :: IO ()
 main = do
@@ -58,19 +67,19 @@ main = do
           exitFailure
         Just path ->
           appendEvent path SessionEvent{eventTag = tag, eventText = txt, eventSource = source}
-    AggregateCmd signalDir quietMins outputDir promptFile handoffPrompt progressPrompt -> do
+    AggregateCmd AggregateConfig{..} -> do
       let
-        threshold = secondsToNominalDiffTime (fromIntegral quietMins * 60)
+        threshold = secondsToNominalDiffTime (fromIntegral acQuietMinutes * 60)
         config =
           ProcessConfig
-            { pcOutputDir = outputDir
-            , pcPromptFile = promptFile
-            , pcHandoffPrompt = handoffPrompt
-            , pcProgressPrompt = progressPrompt
+            { pcOutputDir = acOutputDir
+            , pcPromptFile = acPromptFile
+            , pcHandoffPrompt = acHandoffPrompt
+            , pcProgressPrompt = acProgressPrompt
             , pcCommand = "claude"
             , pcCommandArgs = ["-p"]
             }
-      result <- runAggregation signalDir threshold (processSession config)
+      result <- runAggregation acSignalDir threshold (processSession config)
       case result of
         AggregatedSessions n ->
           logInfo $ "Processed " <> display n <> " session(s)"
@@ -113,7 +122,8 @@ textOption = fmap T.pack . option str
 
 aggregateParser :: Parser Command
 aggregateParser =
-  AggregateCmd
+  fmap AggregateCmd
+    $ AggregateConfig
     <$> option str (long "signal-dir" <> metavar "DIR" <> help "Directory containing .available signal files")
     <*> option auto (long "quiet-minutes" <> metavar "N" <> value 20 <> help "Quiet period in minutes (default: 20)")
     <*> option str (long "output-dir" <> metavar "DIR" <> help "Output directory for EVENTS.jsonl")

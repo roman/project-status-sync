@@ -454,7 +454,7 @@ See:
 - [ ] 2c.2: End-to-end testing
 
 **Pending refactors** (from process review):
-- [ ] Extract `AggregateConfig` record from `AggregateCmd` (6 positional fields → named record) — **BLOCKED** by Maybe proposal
+- [x] Extract `AggregateConfig` record from `AggregateCmd` (6 positional fields → named record)
 - [x] Proposal: `Maybe FilePath` in `ProcessConfig` → See `notes/proposals/2026-03-08-process-config-prompt-fields.md` (Option B: APPROVED)
 - [x] Implement proposal: remove Maybe from prompt fields, make CLI flags required
 - [x] Update `docs/design.md` to reflect stdout-parsing approach (currently documents record-event subprocess)
