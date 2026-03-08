@@ -469,7 +469,7 @@ Step 6 (live hook integration) skipped — not required for gate.
 
 **Issues found during 2c.2 testing**:
 - [ ] `CLAUDECODE` env var prevents `claude -p` subprocess — add explicit CLI flag (e.g. `--bypass-claude-check`) that strips `CLAUDECODE` from child env; revert current implicit stripping in `runLLMPrompt`
-- [ ] LLM wraps STATUS.md and progress.log output in code fences (` ```markdown ` / ` ``` `) — need to strip fences from LLM output before writing files
+- [x] LLM wraps STATUS.md and progress.log output in code fences (` ```markdown ` / ` ``` `) — `stripCodeFences` applied in `runLLMPrompt` (all outputs cleaned centrally)
 
 **Pending refactors** (from process review):
 - [x] Extract `AggregateConfig` record from `AggregateCmd` (6 positional fields → named record)

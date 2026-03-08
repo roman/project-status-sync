@@ -58,6 +58,7 @@ import CCS.Process (
   formatEventsInput,
   parseExtractionOutput,
   parseTopicSlug,
+  stripCodeFences,
   stripTopicLine,
  )
 import CCS.Project (
@@ -579,6 +580,30 @@ processTests =
         , testCase "handles TOPIC: with leading whitespace"
             $ stripTopicLine "content\n  TOPIC: slug\n"
             @?= "content\n"
+        ]
+    , testGroup
+        "stripCodeFences"
+        [ testCase "strips ```markdown wrapper"
+            $ stripCodeFences "```markdown\n# Status\nAll good\n```\n"
+            @?= "# Status\nAll good\n"
+        , testCase "strips bare ``` wrapper"
+            $ stripCodeFences "```\ncontent here\n```\n"
+            @?= "content here\n"
+        , testCase "preserves content without fences"
+            $ stripCodeFences "just plain text\nno fences\n"
+            @?= "just plain text\nno fences\n"
+        , testCase "preserves content with only opening fence"
+            $ stripCodeFences "```markdown\ncontent without closing\n"
+            @?= "```markdown\ncontent without closing\n"
+        , testCase "empty input unchanged"
+            $ stripCodeFences ""
+            @?= ""
+        , testCase "strips ```md wrapper"
+            $ stripCodeFences "```md\n# Title\n```\n"
+            @?= "# Title\n"
+        , testCase "handles no trailing newline on closing fence"
+            $ stripCodeFences "```markdown\n# Status\n```"
+            @?= "# Status\n"
         ]
     ]
 

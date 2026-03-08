@@ -6,6 +6,7 @@ module CCS.Process (
   parseTopicSlug,
   processSession,
   runLLMPrompt,
+  stripCodeFences,
   stripTopicLine,
 ) where
 
@@ -157,7 +158,7 @@ runLLMPrompt ProcessConfig{..} promptPath inputText = do
       logError $ "LLM command failed (exit " <> display code <> ")"
       unless (T.null err) $ logError $ "stderr: " <> display err
       pure Nothing
-    ExitSuccess -> pure (Just out)
+    ExitSuccess -> pure (Just (stripCodeFences out))
 
 processSession
   :: HasLogFunc env
@@ -376,3 +377,18 @@ stripTopicLine =
   T.unlines . filter (not . isTopicLine) . T.lines
  where
   isTopicLine line = "TOPIC:" `T.isPrefixOf` T.strip line
+
+stripCodeFences :: Text -> Text
+stripCodeFences input =
+  let
+    lns = T.lines input
+  in
+    case lns of
+      (opening : rest)
+        | "```" `T.isPrefixOf` T.strip opening ->
+            case reverse rest of
+              (closing : middle)
+                | T.strip closing == "```" ->
+                    T.unlines (reverse middle)
+              _ -> input
+      _ -> input
