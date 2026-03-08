@@ -48,6 +48,11 @@ consult examples for BAD/GOOD code pairs.
 - Strict fields by default: prefix every field with `!`
 - One `App` record per application holding all capabilities
 - Use `{-# UNPACK #-}` for simple fields (Int, Word, etc.)
+- **Record syntax by default** for types with 3+ fields; positional is fine for
+  newtypes and 1-2 field types where meaning is obvious from the type
+- **Never use record syntax on sum types with different fields per constructor** —
+  accessing a field defined on one constructor from another is a runtime crash.
+  Extract the record into its own type instead
 - **Smart constructors**: hide data constructors for API-boundary types, expose
   `mk*` functions and field accessors instead
 - Provide a `.Internal` module for power users who need raw constructors

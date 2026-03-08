@@ -127,6 +127,41 @@ processFile :: FilePath -> RIO AppConfig Result
 processFile :: (HasConfig env, HasLogFunc env) => FilePath -> RIO env Result
 ```
 
+## Data Types: Positional vs Record Syntax
+
+```haskell
+-- GOOD: positional for newtypes and small obvious types
+newtype Name = Name Text
+data Pair a b = Pair a b
+
+-- GOOD: record syntax for 3+ fields
+data Config = Config
+  { configHost    :: !Text
+  , configPort    :: !Int
+  , configRetries :: !Int
+  }
+
+-- BAD: record syntax on sum type with different fields per constructor
+-- accessing connHost on a Disconnected value is a runtime crash
+data Connection
+  = Connected { connHost :: !Text, connSocket :: !Socket }
+  | Disconnected { discReason :: !Text }
+
+-- GOOD: extract records, keep sum type positional
+data ConnInfo = ConnInfo
+  { connHost   :: !Text
+  , connSocket :: !Socket
+  }
+
+data DiscInfo = DiscInfo
+  { discReason :: !Text
+  }
+
+data Connection
+  = Connected !ConnInfo
+  | Disconnected !DiscInfo
+```
+
 ## Data Types: Strict Fields
 
 ```haskell
