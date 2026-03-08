@@ -29,8 +29,8 @@ import System.Process.Typed (byteStringInput, proc, readProcess, setStdin)
 data ProcessConfig = ProcessConfig
   { pcOutputDir :: !FilePath
   , pcPromptFile :: !FilePath
-  , pcHandoffPrompt :: !(Maybe FilePath)
-  , pcProgressPrompt :: !(Maybe FilePath)
+  , pcHandoffPrompt :: !FilePath
+  , pcProgressPrompt :: !FilePath
   , pcCommand :: !FilePath
   , pcCommandArgs :: ![String]
   }
@@ -220,48 +220,46 @@ generateHandoff
 generateHandoff config signal events today projectDir = do
   let
     SessionId sid = asSessionId signal
-  case pcHandoffPrompt config of
-    Nothing -> pure ()
-    Just promptPath
-      | null events ->
-          logDebug $ "No events for handoff, skipping session " <> display sid
-      | otherwise -> do
+    promptPath = pcHandoffPrompt config
+  if null events
+    then logDebug $ "No events for handoff, skipping session " <> display sid
+    else do
+      let
+        sessionPrefix = T.take 8 sid
+        metadata =
+          "Project session metadata:\n"
+            <> "Date: "
+            <> T.pack (show today)
+            <> "\n"
+            <> "Session: "
+            <> sid
+            <> "\n\n"
+        eventsText = formatEventsInput events
+        input = metadata <> eventsText
+
+      logInfo $ "Running handoff generation for session " <> display sid
+      mOut <- runLLMPrompt config promptPath input
+      case mOut of
+        Nothing ->
+          logWarn $ "Handoff generation failed for session " <> display sid
+        Just out -> do
           let
-            sessionPrefix = T.take 8 sid
-            metadata =
-              "Project session metadata:\n"
-                <> "Date: "
-                <> T.pack (show today)
-                <> "\n"
-                <> "Session: "
-                <> sid
-                <> "\n\n"
-            eventsText = formatEventsInput events
-            input = metadata <> eventsText
+            topic = fromMaybe "session-work" (parseTopicSlug out)
+            handoffDir = projectDir </> "handoffs"
+            filename =
+              T.unpack
+                $ T.pack (show today)
+                <> "-"
+                <> sessionPrefix
+                <> "-"
+                <> topic
+                <> ".md"
+            handoffPath = handoffDir </> filename
+            content = stripTopicLine out
 
-          logInfo $ "Running handoff generation for session " <> display sid
-          mOut <- runLLMPrompt config promptPath input
-          case mOut of
-            Nothing ->
-              logWarn $ "Handoff generation failed for session " <> display sid
-            Just out -> do
-              let
-                topic = fromMaybe "session-work" (parseTopicSlug out)
-                handoffDir = projectDir </> "handoffs"
-                filename =
-                  T.unpack
-                    $ T.pack (show today)
-                    <> "-"
-                    <> sessionPrefix
-                    <> "-"
-                    <> topic
-                    <> ".md"
-                handoffPath = handoffDir </> filename
-                content = stripTopicLine out
-
-              createDirectoryIfMissing True handoffDir
-              writeFileBinary handoffPath (T.encodeUtf8 content)
-              logInfo $ "Wrote handoff: " <> fromString filename
+          createDirectoryIfMissing True handoffDir
+          writeFileBinary handoffPath (T.encodeUtf8 content)
+          logInfo $ "Wrote handoff: " <> fromString filename
 
 generateProgressEntry
   :: HasLogFunc env
@@ -274,40 +272,38 @@ generateProgressEntry
 generateProgressEntry config signal events now projectDir = do
   let
     SessionId sid = asSessionId signal
-  case pcProgressPrompt config of
-    Nothing -> pure ()
-    Just promptPath
-      | null events ->
-          logDebug $ "No events for progress, skipping session " <> display sid
-      | otherwise -> do
-          let
-            sessionPrefix = T.take 8 sid
-            metadata =
-              "Session metadata:\n"
-                <> "Date: "
-                <> T.pack (show (utctDay now))
-                <> "\n"
-                <> "Session prefix: "
-                <> sessionPrefix
-                <> "\n\n"
-            eventsText = formatEventsInput events
-            input = metadata <> eventsText
+    promptPath = pcProgressPrompt config
+  if null events
+    then logDebug $ "No events for progress, skipping session " <> display sid
+    else do
+      let
+        sessionPrefix = T.take 8 sid
+        metadata =
+          "Session metadata:\n"
+            <> "Date: "
+            <> T.pack (show (utctDay now))
+            <> "\n"
+            <> "Session prefix: "
+            <> sessionPrefix
+            <> "\n\n"
+        eventsText = formatEventsInput events
+        input = metadata <> eventsText
 
-          logInfo $ "Running progress entry for session " <> display sid
-          mOut <- runLLMPrompt config promptPath input
-          case mOut of
-            Nothing ->
-              logWarn $ "Progress entry generation failed for session " <> display sid
-            Just out -> do
-              let
-                entry = T.strip out
-                progressFile = projectDir </> "progress.log"
-              unless (T.null entry) $ do
-                liftIO
-                  $ withBinaryFile progressFile AppendMode
-                  $ \h ->
-                    hPutBuilder h (getUtf8Builder (display entry <> "\n"))
-                logInfo $ "Appended progress entry for session " <> display sid
+      logInfo $ "Running progress entry for session " <> display sid
+      mOut <- runLLMPrompt config promptPath input
+      case mOut of
+        Nothing ->
+          logWarn $ "Progress entry generation failed for session " <> display sid
+        Just out -> do
+          let
+            entry = T.strip out
+            progressFile = projectDir </> "progress.log"
+          unless (T.null entry) $ do
+            liftIO
+              $ withBinaryFile progressFile AppendMode
+              $ \h ->
+                hPutBuilder h (getUtf8Builder (display entry <> "\n"))
+            logInfo $ "Appended progress entry for session " <> display sid
 
 stripTopicLine :: Text -> Text
 stripTopicLine =
