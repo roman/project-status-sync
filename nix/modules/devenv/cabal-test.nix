@@ -6,7 +6,8 @@
     description = "Run cabal test suite";
     entry = "${pkgs.haskellPackages.cabal-install}/bin/cabal test";
     pass_filenames = false;
-    always_run = true;
+    files = "\\.(hs|cabal)$";
+    always_run = false;
     stages = [ "pre-commit" ];
   };
 }
