@@ -29,7 +29,7 @@
 | 2a | Tooling: pre-filter, record-event, aggregation | DONE (verify build) | Infra, Phase 1 (signal format) |
 | 2b | Prompts: extraction, handoff, progress, synthesis | **DONE** | Infra |
 | 2c | Integration: wire everything together | **PARTIAL** (2c.1 done, 2c.2 pending) | 1, 2a, 2b |
-| 3 | Status & Handoffs: generate outputs | **PARTIAL** (3.1+3.2 done, 3.3 pending) | 2c |
+| 3 | Status & Handoffs: generate outputs | **PARTIAL** (3.1-3.3 done, 3.4 pending) | 2c |
 | 4 | Retrieval: context injection (optional) | DEFERRED | 3 |
 | 5 | Archival: manage EVENTS.jsonl growth | DEFERRED | 4 |
 
@@ -512,11 +512,12 @@ Wire all prompts to aggregation job in order:
 
 - [x] 3.1: Processing flow integration (handoff + progress wired; synthesis deferred to 3.3)
 - [x] 3.2: Handoff output (writes to `{project}/handoffs/{date}-{prefix}-{topic}.md`)
-- [ ] 3.3: STATUS.md output (synthesis prompt not yet wired)
+- [x] 3.3: STATUS.md output (synthesis prompt wired into processSession, writes `{project}/STATUS.md`)
 - [ ] 3.4: Quality validation
 
 See:
 - `notes/handoffs/2026-03-08-processing-flow-integration.md`
+- `notes/handoffs/2026-03-08-status-synthesis-wiring.md`
 
 ---
 

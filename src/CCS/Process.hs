@@ -10,6 +10,7 @@ module CCS.Process (
 ) where
 
 import RIO
+import RIO.List (sort)
 import RIO.Text qualified as T
 
 -- Data.Text: RIO.Text does not re-export breakOn
@@ -21,7 +22,7 @@ import CCS.Filter (filterTranscriptFile)
 import CCS.Project (Project (..), ProjectKey (..), ProjectName (..), identifyProject)
 import Data.Aeson (FromJSON (..), ToJSON (..), object, withObject, (.:), (.=))
 
-import RIO.Directory (createDirectoryIfMissing)
+import RIO.Directory (createDirectoryIfMissing, doesDirectoryExist, listDirectory)
 import RIO.FilePath ((</>))
 import RIO.Time (Day, UTCTime (..), getCurrentTime, utctDay)
 import System.Process.Typed (byteStringInput, proc, readProcess, setStdin)
@@ -31,6 +32,7 @@ data ProcessConfig = ProcessConfig
   , pcPromptFile :: !FilePath
   , pcHandoffPrompt :: !FilePath
   , pcProgressPrompt :: !FilePath
+  , pcSynthesisPrompt :: !FilePath
   , pcCommand :: !FilePath
   , pcCommandArgs :: ![String]
   }
@@ -208,6 +210,7 @@ processSession config@ProcessConfig{..} signal = do
 
           generateHandoff config signal events today projectDir
           generateProgressEntry config signal events now projectDir
+          generateStatus config signal (projectName project) eventsFile projectDir
 
 generateHandoff
   :: HasLogFunc env
@@ -304,6 +307,69 @@ generateProgressEntry config signal events now projectDir = do
               $ \h ->
                 hPutBuilder h (getUtf8Builder (display entry <> "\n"))
             logInfo $ "Appended progress entry for session " <> display sid
+
+generateStatus
+  :: HasLogFunc env
+  => ProcessConfig
+  -> AvailabilitySignal
+  -> ProjectName
+  -> FilePath
+  -> FilePath
+  -> RIO env ()
+generateStatus config signal pname eventsFile projectDir = do
+  let
+    SessionId sid = asSessionId signal
+    ProjectName pnameText = pname
+    promptPath = pcSynthesisPrompt config
+
+  eventsBytes <- readFileBinary eventsFile
+  let
+    eventsContent = T.decodeUtf8With T.lenientDecode eventsBytes
+
+  if T.null eventsContent
+    then logDebug $ "No events for synthesis, skipping session " <> display sid
+    else do
+      let
+        handoffDir = projectDir </> "handoffs"
+      handoffExists <- doesDirectoryExist handoffDir
+      handoffFiles <-
+        if handoffExists
+          then sort <$> listDirectory handoffDir
+          else pure []
+
+      let
+        handoffList = case handoffFiles of
+          [] -> "No handoff files yet.\n"
+          fs ->
+            "Recent handoff files:\n"
+              <> T.unlines (map (\f -> "- handoffs/" <> T.pack f) fs)
+        input =
+          "Project: "
+            <> pnameText
+            <> "\nSession: "
+            <> sid
+            <> "\n\n"
+            <> handoffList
+            <> "\n"
+            <> eventsContent
+
+      let
+        inputLen = T.length input
+      logInfo
+        $ "Running status synthesis for session "
+        <> display sid
+        <> " ("
+        <> display inputLen
+        <> " chars input)"
+      mOut <- runLLMPrompt config promptPath input
+      case mOut of
+        Nothing ->
+          logWarn $ "Status synthesis failed for session " <> display sid
+        Just out -> do
+          let
+            statusPath = projectDir </> "STATUS.md"
+          writeFileBinary statusPath (T.encodeUtf8 out)
+          logInfo $ "Wrote STATUS.md for project " <> display pnameText
 
 stripTopicLine :: Text -> Text
 stripTopicLine =

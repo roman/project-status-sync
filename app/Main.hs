@@ -45,6 +45,7 @@ data AggregateConfig = AggregateConfig
   , acPromptFile :: !FilePath
   , acHandoffPrompt :: !FilePath
   , acProgressPrompt :: !FilePath
+  , acSynthesisPrompt :: !FilePath
   }
 
 data Command
@@ -76,6 +77,7 @@ main = do
             , pcPromptFile = acPromptFile
             , pcHandoffPrompt = acHandoffPrompt
             , pcProgressPrompt = acProgressPrompt
+            , pcSynthesisPrompt = acSynthesisPrompt
             , pcCommand = "claude"
             , pcCommandArgs = ["-p"]
             }
@@ -130,6 +132,7 @@ aggregateParser =
     <*> option str (long "prompt-file" <> metavar "FILE" <> help "Path to extraction prompt file")
     <*> option str (long "handoff-prompt" <> metavar "FILE" <> help "Path to handoff generation prompt file")
     <*> option str (long "progress-prompt" <> metavar "FILE" <> help "Path to progress entry prompt file")
+    <*> option str (long "synthesis-prompt" <> metavar "FILE" <> help "Path to status synthesis prompt file")
 
 versionOpt :: Parser (a -> a)
 versionOpt =

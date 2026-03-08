@@ -56,3 +56,4 @@
 2026-03-08 23:45 [8374e96c] — Phase 2c: implement approved proposal — make prompt fields mandatory (remove Maybe, loud CLI errors)
 2026-03-08 23:59 [7d1da62a] — PM: update design.md to reflect stdout-parsing approach (was documenting record-event subprocess)
 2026-03-08 24:30 [9c7e385d] — Phase 2c: extract AggregateConfig record from AggregateCmd (6 positional fields → named record)
+2026-03-08 25:15 [866b9545] — Phase 3.3: wire synthesis prompt into processSession (STATUS.md generation)
