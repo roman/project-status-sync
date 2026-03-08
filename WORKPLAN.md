@@ -28,8 +28,8 @@
 | 1 | Capture: hooks + signals | DONE (verify build) | — |
 | 2a | Tooling: pre-filter, record-event, aggregation | DONE (verify build) | Infra, Phase 1 (signal format) |
 | 2b | Prompts: extraction, handoff, progress, synthesis | **DONE** | Infra |
-| 2c | Integration: wire everything together | **PARTIAL** (2c.1 done, 2c.2 pending) | 1, 2a, 2b |
-| 3 | Status & Handoffs: generate outputs | **PARTIAL** (3.1-3.3 done, 3.4 pending) | 2c |
+| 2c | Integration: wire everything together | **CODE COMPLETE** (2c.2 awaits human e2e verification) | 1, 2a, 2b |
+| 3 | Status & Handoffs: generate outputs | **CODE COMPLETE** (3.4 awaits human quality validation) | 2c |
 | 4 | Retrieval: context injection (optional) | DEFERRED | 3 |
 | 5 | Archival: manage EVENTS.jsonl growth | DEFERRED | 4 |
 
@@ -451,7 +451,7 @@ See:
 ### Progress
 
 - [x] 2c.1: Aggregation job completion
-- [ ] 2c.2: End-to-end testing
+- [ ] 2c.2: End-to-end testing (requires real Claude sessions outside sandbox — human-verified)
 
 **Pending refactors** (from process review):
 - [x] Extract `AggregateConfig` record from `AggregateCmd` (6 positional fields → named record)
@@ -459,12 +459,13 @@ See:
 - [x] Implement proposal: remove Maybe from prompt fields, make CLI flags required
 - [x] Update `docs/design.md` to reflect stdout-parsing approach (currently documents record-event subprocess)
 
-**Review gates** (revisit after milestone):
-- [ ] After Phase 3.3 lands: is field count now painful enough to justify PromptBundle (Option C)? See `notes/proposals/2026-03-08-process-config-prompt-fields.md` § Evolution Path
-- [ ] After Phase 3.3 lands: has extraction-only become a real need requiring a `ccs extract` subcommand? See same proposal § Evolution Path
+**Review gates** (assessed 2026-03-08 after Phase 3.3 landed):
+- [x] PromptBundle (Option C): **Not yet.** 4 prompt fields in 7-field named records is manageable. `AggregateConfig` extraction resolved the positional-fields pain. Reassess if a 5th prompt is added.
+- [x] Extraction-only (`ccs extract`): **No need.** Pipeline always runs all 4 stages; no use case for extraction-only has surfaced. Revisit only if a concrete need arises.
 
 See:
 - `notes/handoffs/2026-03-08-aggregation-pipeline-wiring.md`
+- `notes/handoffs/2026-03-08-review-gate-assessment.md`
 
 ---
 
@@ -513,7 +514,7 @@ Wire all prompts to aggregation job in order:
 - [x] 3.1: Processing flow integration (handoff + progress wired; synthesis deferred to 3.3)
 - [x] 3.2: Handoff output (writes to `{project}/handoffs/{date}-{prefix}-{topic}.md`)
 - [x] 3.3: STATUS.md output (synthesis prompt wired into processSession, writes `{project}/STATUS.md`)
-- [ ] 3.4: Quality validation
+- [ ] 3.4: Quality validation (requires real pipeline run + cold read after 1 week — human-verified)
 
 See:
 - `notes/handoffs/2026-03-08-processing-flow-integration.md`
