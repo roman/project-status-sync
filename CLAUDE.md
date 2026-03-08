@@ -73,6 +73,16 @@ If you create a plan during this session (via EnterPlanMode or research):
 
 Plans in the context window are lost on session end. Plans on disk survive.
 
+## Proposals
+
+When writing a proposal (design decision, refactor rationale, approach comparison):
+
+1. Follow the template at `notes/proposals/TEMPLATE.md`
+2. Save as `notes/proposals/YYYY-MM-DD-topic-kebab-case.md`
+3. Every Evolution Path item MUST be registered as a review gate in WORKPLAN.md
+4. At the start of each phase, check the "Review gates" section — if a trigger condition
+   is met, read the referenced proposal and re-evaluate before proceeding
+
 ## Goal
 
 Make Claude useful across sessions by giving it awareness of previous work on a project —

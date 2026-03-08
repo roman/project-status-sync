@@ -455,9 +455,13 @@ See:
 
 **Pending refactors** (from process review):
 - [ ] Extract `AggregateConfig` record from `AggregateCmd` (6 positional fields → named record) — **BLOCKED** by Maybe proposal
-- [x] Proposal: `Maybe FilePath` in `ProcessConfig` → See `notes/proposals/2026-03-08-process-config-prompt-fields.md` (recommends Option B: make mandatory, awaiting human review)
-- [ ] Implement proposal: remove Maybe from prompt fields, make CLI flags required — **BLOCKED** by proposal approval
+- [x] Proposal: `Maybe FilePath` in `ProcessConfig` → See `notes/proposals/2026-03-08-process-config-prompt-fields.md` (Option B: APPROVED)
+- [ ] Implement proposal: remove Maybe from prompt fields, make CLI flags required
 - [ ] Update `docs/design.md` to reflect stdout-parsing approach (currently documents record-event subprocess)
+
+**Review gates** (revisit after milestone):
+- [ ] After Phase 3.3 lands: is field count now painful enough to justify PromptBundle (Option C)? See `notes/proposals/2026-03-08-process-config-prompt-fields.md` § Evolution Path
+- [ ] After Phase 3.3 lands: has extraction-only become a real need requiring a `ccs extract` subcommand? See same proposal § Evolution Path
 
 See:
 - `notes/handoffs/2026-03-08-aggregation-pipeline-wiring.md`

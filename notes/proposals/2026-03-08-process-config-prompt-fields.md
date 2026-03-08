@@ -1,7 +1,7 @@
 # ProcessConfig Prompt Fields: Maybe or Mandatory?
 
 **Date**: 2026-03-08
-**Status**: PROPOSED
+**Status**: APPROVED
 **Affects**: `CCS.Process.ProcessConfig`, `Main.AggregateCmd`, `processSession` pipeline
 
 ## Problem Statement
@@ -146,8 +146,10 @@ correctly-configured invocations. The compiler will catch every call site that n
 
 ### Evolution Path
 
-- If extraction-only becomes a real need: add `ccs extract` subcommand with its own config.
-- If Phase 3.3 makes field count painful: revisit PromptBundle (Option C) with real evidence.
+- **Trigger**: Phase 3.3 lands. **Question**: Is field count now painful enough for PromptBundle (Option C)? **Reference**: Option C in this proposal.
+- **Trigger**: Phase 3.3 lands. **Question**: Has extraction-only become a real need? **Reference**: add `ccs extract` subcommand with its own config.
+
+Registered as review gates in WORKPLAN.md § Phase 2c.
 
 ### Review Notes (code-critic)
 
