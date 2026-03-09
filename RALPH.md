@@ -85,10 +85,13 @@ Write code. This is the only role that touches `src/` or `app/`.
 
 1. Load `haskell-development-skill` via Skill tool
 2. Verify: WORKPLAN is current, no blocking proposals
-3. Implement the next chunk from WORKPLAN
-4. Run `cabal test` — do not proceed if tests fail
-5. Spawn `code-critic` agent to review changes (max 2 rounds)
-6. Commit: code + WORKPLAN update + progress.log + handoff doc
+3. **Quote the target WORKPLAN item verbatim** — identify each specific requirement
+4. If any requirement seems wrong, switch to Architect protocol (write proposal, stop)
+5. Implement addressing each requirement
+6. Run `cabal test` — do not proceed if tests fail
+7. Spawn `code-critic` agent with WORKPLAN item text (max 2 rounds)
+8. Verify each spec requirement is met before committing
+9. Commit: code + WORKPLAN update + progress.log + handoff doc (with Spec Compliance section)
 
 ### Reviewer
 

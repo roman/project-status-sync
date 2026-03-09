@@ -35,6 +35,24 @@ Session handoff notes live in [`notes/handoffs/`](notes/handoffs/). WORKPLAN.md 
 
 A commit without its tier's documentation updates is incomplete.
 
+## Spec-First Implementation (NON-NEGOTIABLE)
+
+When implementing a WORKPLAN item:
+
+1. **Quote the item verbatim** — copy the WORKPLAN text into your working context
+2. **Identify each requirement** — list what the spec asks for (CLI flag, specific behavior, etc.)
+3. **Implement to spec** — address each requirement, not just the spirit of the task
+4. **If you disagree with the spec** — write a proposal or ask the user. Never silently deviate.
+
+Handoff docs for implementation commits must include a **Spec Compliance** section:
+
+```
+## Spec Compliance
+WORKPLAN item: "<quoted text>"
+- Requirement 1: [met/deviated] — explanation
+- Requirement 2: [met/deviated] — explanation
+```
+
 ## Code Review Before Every Code Commit (NON-NEGOTIABLE)
 
 Applies to commits that touch `src/`, `app/`, or `test/`. Doc-only commits skip this.
@@ -42,18 +60,20 @@ Applies to commits that touch `src/`, `app/`, or `test/`. Doc-only commits skip 
 After implementation and before committing:
 
 1. **Run `cabal test`** — do not proceed if tests fail
-2. **Spawn `code-critic` agent** (via Task tool) to review your changes
+2. **Spawn `code-critic` agent** (via Task tool) to review your changes.
+   Include the WORKPLAN item text so the critic can verify spec compliance.
 3. Address blocker and major severity findings. Ignore stylistic nitpicks.
 4. Do not loop more than twice — ship it after two rounds of fixes.
 
 ```bash
 # Correct workflow (implementation commits):
-1. Make code changes
+0. Quote the WORKPLAN item — identify each specific requirement
+1. Make code changes addressing each requirement
 2. Run `cabal test` — do not proceed if tests fail
-3. Spawn code-critic agent to review changes (address blocker/major issues, max 2 rounds)
+3. Spawn code-critic with WORKPLAN item text (address blocker/major, max 2 rounds)
 4. Update WORKPLAN.md (progress, status, handoff notes)
 5. Append to progress.log
-6. Create/update handoff in notes/handoffs/
+6. Create/update handoff in notes/handoffs/ (must include Spec Compliance section)
 7. Stage ALL files together
 8. Commit with descriptive message
 
