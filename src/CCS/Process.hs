@@ -26,7 +26,10 @@ import Data.Aeson (FromJSON (..), ToJSON (..), object, withObject, (.:), (.=))
 import RIO.Directory (createDirectoryIfMissing, doesDirectoryExist, listDirectory)
 import RIO.FilePath ((</>))
 import RIO.Time (Day, UTCTime (..), getCurrentTime, utctDay)
-import System.Process.Typed (byteStringInput, proc, readProcess, setStdin)
+
+-- System.Environment: RIO does not re-export getEnvironment
+import System.Environment (getEnvironment)
+import System.Process.Typed (byteStringInput, proc, readProcess, setEnv, setStdin)
 
 data ProcessConfig = ProcessConfig
   { pcOutputDir :: !FilePath
@@ -36,6 +39,7 @@ data ProcessConfig = ProcessConfig
   , pcSynthesisPrompt :: !FilePath
   , pcCommand :: !FilePath
   , pcCommandArgs :: ![String]
+  , pcBypassClaudeCheck :: !Bool
   }
   deriving stock (Show)
 
@@ -143,9 +147,15 @@ runLLMPrompt ProcessConfig{..} promptPath inputText = do
   let
     promptText = T.decodeUtf8With T.lenientDecode promptBytes
     fullInput = T.encodeUtf8 $ promptText <> "\n" <> inputText
-    processConfig =
+    baseConfig =
       setStdin (byteStringInput (fromStrictBytes fullInput))
         $ proc pcCommand pcCommandArgs
+  processConfig <-
+    if pcBypassClaudeCheck
+      then do
+        env <- liftIO getEnvironment
+        pure $ setEnv (filter ((/= "CLAUDECODE") . fst) env) baseConfig
+      else pure baseConfig
 
   (exitCode, outBs, errBs) <- readProcess processConfig
 

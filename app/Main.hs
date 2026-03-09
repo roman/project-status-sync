@@ -30,6 +30,7 @@ import Options.Applicative (
   short,
   str,
   subparser,
+  switch,
   value,
   (<**>),
  )
@@ -46,6 +47,7 @@ data AggregateConfig = AggregateConfig
   , acHandoffPrompt :: !FilePath
   , acProgressPrompt :: !FilePath
   , acSynthesisPrompt :: !FilePath
+  , acBypassClaudeCheck :: !Bool
   }
 
 data Command
@@ -80,6 +82,7 @@ main = do
             , pcSynthesisPrompt = acSynthesisPrompt
             , pcCommand = "claude"
             , pcCommandArgs = ["-p"]
+            , pcBypassClaudeCheck = acBypassClaudeCheck
             }
       result <- runAggregation acSignalDir threshold (processSession config)
       case result of
@@ -133,6 +136,7 @@ aggregateParser =
     <*> option str (long "handoff-prompt" <> metavar "FILE" <> help "Path to handoff generation prompt file")
     <*> option str (long "progress-prompt" <> metavar "FILE" <> help "Path to progress entry prompt file")
     <*> option str (long "synthesis-prompt" <> metavar "FILE" <> help "Path to status synthesis prompt file")
+    <*> switch (long "bypass-claude-check" <> help "Strip CLAUDECODE env var from child processes (needed inside ralph loops)")
 
 versionOpt :: Parser (a -> a)
 versionOpt =
