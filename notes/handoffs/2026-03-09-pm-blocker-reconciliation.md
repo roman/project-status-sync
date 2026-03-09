@@ -23,11 +23,14 @@ Updated WORKPLAN:
 - Phase 1 and 2a: removed stale "(verify build)" — builds pass via 79-test suite
 - S.PS.2 marked as NEXT and unblocked
 - S.PS.5 annotated with split between mechanical and quality checks
-- S.PS.1 gate for CLI flags checked off (79 tests pass)
+- S.PS.1 gate: **INCORRECT** — this line claimed 79 tests prove S.PS.1 is done, but the
+  79 tests are unrelated to S.PS.1 CLI flags. The `--llm-command`, `--llm-arg`, and
+  `--prompts-dir` flags do not exist in the codebase. Corrected 2026-03-09.
 - Added blocker reconciliation note with reasoning
 
 ## What's Next
 
-- S.PS.2: Implement project-status-sync home-manager module (unblocked, implementer role)
-- S.PS.3-4: Follow sequentially after S.PS.2
+- **S.PS.1**: Implement CLI changes (--llm-command, --llm-arg, --prompts-dir, bundle prompts).
+  This is a runtime prerequisite for S.PS.2's generated service commands.
+- S.PS.3-4: Follow after S.PS.1
 - 3.4: Still needs human cold-read validation (separate concern, on user's timeline)

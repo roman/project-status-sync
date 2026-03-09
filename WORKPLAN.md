@@ -770,19 +770,23 @@ Module options (`programs.project-status-sync`):
 
 ### Progress
 
-- [ ] S.PS.1: CLI changes (--llm-command, --llm-arg, --prompts-dir, bundle prompts)
+- [ ] S.PS.1: CLI changes (--llm-command, --llm-arg, --prompts-dir, bundle prompts) — **NEXT**
 - [X] S.PS.2: project-status-sync home-manager module
 - [ ] S.PS.3: Deprecate ccs-session-end-hook module
 - [ ] S.PS.4: Integration in zoo.nix
 - [ ] S.PS.5: Verification
 
+**Runtime dependency** (2026-03-09): S.PS.2 module passes `--prompts-dir`, `--llm-command`,
+and `--llm-arg` flags to `ccs aggregate` (lines 24-32 of module). These flags do not exist
+in the CLI yet — S.PS.1 must be completed before S.PS.2-4 can work at runtime. The module
+evaluates in Nix but the generated service command will fail until S.PS.1 lands.
+
 **Blocker reconciliation** (2026-03-09): S.PS.2-4 were previously listed as blocked by 3.4
 (quality validation). This was overly conservative. 3.4 tests whether LLM-generated output
 is subjectively useful — it says nothing about the Nix module that wraps the CLI, the
 deprecation of the old module, or the zoo.nix integration. S.PS.2-4 are pure infrastructure
-and unblocked. Only S.PS.5's quality judgment depends on 3.4.
+and unblocked from 3.4. Only S.PS.5's quality judgment depends on 3.4.
 
 See:
-- `notes/handoffs/2026-03-09-sps1-cli-changes.md`
 - `notes/handoffs/2026-03-09-pm-blocker-reconciliation.md`
 - `notes/handoffs/2026-03-09-sps2-home-manager-module.md`
