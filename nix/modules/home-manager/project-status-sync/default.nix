@@ -21,8 +21,6 @@ let
     (toString cfg.quietPeriodMinutes)
     "--output-dir"
     cfg.outputDir
-    "--prompts-dir"
-    "${cfg.package}/share/ccs/prompts"
     "--llm-command"
     cfg.llmCommand
   ]
@@ -46,7 +44,7 @@ in
       type = lib.types.package;
       default = inputs.self.packages.${system}.ccs;
       defaultText = lib.literalExpression "inputs.self.packages.\${system}.ccs";
-      description = "The ccs package (binary + bundled prompts at share/ccs/prompts/).";
+      description = "The ccs package.";
     };
 
     signalDir = lib.mkOption {

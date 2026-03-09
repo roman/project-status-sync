@@ -33,10 +33,10 @@ import System.Process.Typed (byteStringInput, proc, readProcess, setEnv, setStdi
 
 data ProcessConfig = ProcessConfig
   { pcOutputDir :: !FilePath
-  , pcPromptFile :: !FilePath
-  , pcHandoffPrompt :: !FilePath
-  , pcProgressPrompt :: !FilePath
-  , pcSynthesisPrompt :: !FilePath
+  , pcExtractionPrompt :: !Text
+  , pcHandoffPrompt :: !Text
+  , pcProgressPrompt :: !Text
+  , pcSynthesisPrompt :: !Text
   , pcCommand :: !FilePath
   , pcCommandArgs :: ![String]
   , pcBypassClaudeCheck :: !Bool
@@ -139,13 +139,11 @@ parseTopicSlug =
 runLLMPrompt
   :: HasLogFunc env
   => ProcessConfig
-  -> FilePath
+  -> Text
   -> Text
   -> RIO env (Maybe Text)
-runLLMPrompt ProcessConfig{..} promptPath inputText = do
-  promptBytes <- readFileBinary promptPath
+runLLMPrompt ProcessConfig{..} promptText inputText = do
   let
-    promptText = T.decodeUtf8With T.lenientDecode promptBytes
     fullInput = T.encodeUtf8 $ promptText <> "\n" <> inputText
     baseConfig =
       setStdin (byteStringInput (fromStrictBytes fullInput))
@@ -186,7 +184,7 @@ processSession config@ProcessConfig{..} signal = do
     then logWarn $ "Empty transcript after filtering for session " <> display sid
     else do
       logInfo $ "Running extraction for session " <> display sid
-      mOut <- runLLMPrompt config pcPromptFile filtered
+      mOut <- runLLMPrompt config pcExtractionPrompt filtered
 
       case mOut of
         Nothing ->
@@ -234,7 +232,6 @@ generateHandoff
 generateHandoff config signal events today projectDir = do
   let
     SessionId sid = asSessionId signal
-    promptPath = pcHandoffPrompt config
   if null events
     then logDebug $ "No events for handoff, skipping session " <> display sid
     else do
@@ -252,7 +249,7 @@ generateHandoff config signal events today projectDir = do
         input = metadata <> eventsText
 
       logInfo $ "Running handoff generation for session " <> display sid
-      mOut <- runLLMPrompt config promptPath input
+      mOut <- runLLMPrompt config (pcHandoffPrompt config) input
       case mOut of
         Nothing ->
           logWarn $ "Handoff generation failed for session " <> display sid
@@ -286,7 +283,6 @@ generateProgressEntry
 generateProgressEntry config signal events now projectDir = do
   let
     SessionId sid = asSessionId signal
-    promptPath = pcProgressPrompt config
   if null events
     then logDebug $ "No events for progress, skipping session " <> display sid
     else do
@@ -304,7 +300,7 @@ generateProgressEntry config signal events now projectDir = do
         input = metadata <> eventsText
 
       logInfo $ "Running progress entry for session " <> display sid
-      mOut <- runLLMPrompt config promptPath input
+      mOut <- runLLMPrompt config (pcProgressPrompt config) input
       case mOut of
         Nothing ->
           logWarn $ "Progress entry generation failed for session " <> display sid
@@ -331,7 +327,6 @@ generateStatus config signal pname eventsFile projectDir = do
   let
     SessionId sid = asSessionId signal
     ProjectName pnameText = pname
-    promptPath = pcSynthesisPrompt config
 
   eventsBytes <- readFileBinary eventsFile
   let
@@ -372,7 +367,7 @@ generateStatus config signal pname eventsFile projectDir = do
         <> " ("
         <> display inputLen
         <> " chars input)"
-      mOut <- runLLMPrompt config promptPath input
+      mOut <- runLLMPrompt config (pcSynthesisPrompt config) input
       case mOut of
         Nothing ->
           logWarn $ "Status synthesis failed for session " <> display sid

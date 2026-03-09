@@ -692,8 +692,9 @@ runs periodic aggregation (systemd timer / launchd agent). Replaces the standalo
   invokes `ccs aggregate` every 5 minutes. Quiet period check already built into CLI.
 - **Configurable LLM command**: `--llm-command` / `--llm-arg` CLI flags allow using
   `airchat claude -- -p` at work instead of the default `claude -p`.
-- **Prompts bundled in ccs package**: Prompts installed at `$out/share/ccs/prompts/` inside
-  the ccs derivation. Single `--prompts-dir DIR` CLI flag replaces 4 individual prompt flags.
+- **Prompts embedded in binary**: Prompts compiled into the ccs binary via `file-embed`.
+  No runtime prompt directory needed. Individual `--*-prompt FILE` flags remain as optional
+  overrides for development iteration.
 - **`--bypass-claude-check` not needed**: The service runs outside Claude Code, so the
   CLAUDECODE env var check is irrelevant. Module does not pass or expose this flag.
 - **Hook composability**: Use `lib.mkAfter` when setting `hooks.SessionEnd` so other modules
@@ -708,13 +709,11 @@ runs periodic aggregation (systemd timer / launchd agent). Replaces the standalo
 - Add `--llm-command CMD` flag to `ccs aggregate` (default: `claude`)
 - Add `--llm-arg ARG` repeatable flag (default when none given: `-p`).
   Example: `--llm-command airchat --llm-arg claude --llm-arg -- --llm-arg -p`
-- Add `--prompts-dir DIR` flag replacing `--prompt-file`, `--handoff-prompt`,
-  `--progress-prompt`, `--synthesis-prompt`. Code resolves conventional filenames
-  (`session-extraction.md`, etc.) within the directory.
-- Keep individual `--*-prompt` flags as overrides (take precedence over `--prompts-dir`)
-- Bundle prompts in the ccs Nix package at `$out/share/ccs/prompts/`
-- Wire `acLLMCommand`/`acLLMArgs`/`acPromptsDir` into `ProcessConfig`
-- Files: `app/Main.hs`, `src/CCS/Process.hs`, `nix/packages/ccs/default.nix`
+- Embed prompts in binary via `file-embed` — zero-config default
+- Keep individual `--*-prompt FILE` flags as optional overrides for development
+- ProcessConfig prompt fields changed from `FilePath` to `Text` (prompt content)
+- Files: `app/Main.hs`, `app/Prompts.hs`, `src/CCS/Process.hs`, `ccs.cabal`,
+  `nix/packages/ccs/default.nix`, `nix/modules/home-manager/project-status-sync/`
 
 #### S.PS.2: project-status-sync home-manager module (NEXT — unblocked)
 
@@ -729,7 +728,7 @@ Module options (`programs.project-status-sync`):
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `enable` | bool | false | Enable capture hook + periodic aggregation |
-| `package` | package | `ccs` | Binary providing `ccs aggregate` + bundled prompts |
+| `package` | package | `ccs` | Binary providing `ccs aggregate` (prompts embedded) |
 | `signalDir` | str | `${xdg.stateHome}/ccs/signals` | Signal directory (shared by hook and service) |
 | `outputDir` | str | **(required)** | Output for EVENTS.jsonl, STATUS.md, handoffs |
 | `quietPeriodMinutes` | int | 20 | Quiet period before processing |
@@ -761,8 +760,8 @@ Module options (`programs.project-status-sync`):
 
 ### Gates
 
-- [x] `--llm-command` / `--llm-arg` / `--prompts-dir` flags work (`cabal test` — 79 tests pass)
-- [x] Prompts bundled in ccs package (`nix build .#ccs --impure`) — postInstall copies prompts to `$out/share/ccs/prompts/`
+- [x] `--llm-command` / `--llm-arg` flags work (`cabal test` — 79 tests pass)
+- [x] Prompts embedded in binary via `file-embed` — no runtime directory needed
 - [ ] Module evaluates on both Linux and macOS
 - [ ] SessionEnd hook registers correctly (composable via `mkAfter`)
 - [ ] Timer activates after `home-manager switch`
@@ -770,16 +769,15 @@ Module options (`programs.project-status-sync`):
 
 ### Progress
 
-- [x] S.PS.1: CLI changes (--llm-command, --llm-arg, --prompts-dir, bundle prompts)
+- [x] S.PS.1: CLI changes (--llm-command, --llm-arg, embedded prompts via file-embed)
 - [X] S.PS.2: project-status-sync home-manager module
 - [ ] S.PS.3: Deprecate ccs-session-end-hook module
 - [ ] S.PS.4: Integration in zoo.nix
 - [ ] S.PS.5: Verification
 
-**Runtime dependency** (2026-03-09): S.PS.2 module passes `--prompts-dir`, `--llm-command`,
-and `--llm-arg` flags to `ccs aggregate` (lines 24-32 of module). These flags do not exist
-in the CLI yet — S.PS.1 must be completed before S.PS.2-4 can work at runtime. The module
-evaluates in Nix but the generated service command will fail until S.PS.1 lands.
+**Runtime dependency** (2026-03-09): S.PS.2 module passes `--llm-command`
+and `--llm-arg` flags to `ccs aggregate`. Prompts are embedded in the binary — no
+`--prompts-dir` flag needed. S.PS.1 is now complete.
 
 **Blocker reconciliation** (2026-03-09): S.PS.2-4 were previously listed as blocked by 3.4
 (quality validation). This was overly conservative. 3.4 tests whether LLM-generated output
