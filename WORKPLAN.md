@@ -32,7 +32,7 @@
 | 3 | Status & Handoffs: generate outputs | **CODE COMPLETE** (3.4 awaits human quality validation) | 2c |
 | 4 | Retrieval: context injection (optional) | DEFERRED | 3 |
 | 5 | Archival: manage EVENTS.jsonl growth | DEFERRED | 4 |
-| S.PS | Project Status Sync: periodic service module | **STARTED** | S.PS.5 quality portion blocked by 3.4 |
+| S.PS | Project Status Sync: periodic service module | IN PROGRESS (S.PS.2 done) | S.PS.5 quality portion blocked by 3.4 |
 
 ## Phase Diagram
 
@@ -771,7 +771,7 @@ Module options (`programs.project-status-sync`):
 ### Progress
 
 - [ ] S.PS.1: CLI changes (--llm-command, --llm-arg, --prompts-dir, bundle prompts)
-- [ ] S.PS.2: project-status-sync home-manager module
+- [X] S.PS.2: project-status-sync home-manager module
 - [ ] S.PS.3: Deprecate ccs-session-end-hook module
 - [ ] S.PS.4: Integration in zoo.nix
 - [ ] S.PS.5: Verification
@@ -785,3 +785,4 @@ and unblocked. Only S.PS.5's quality judgment depends on 3.4.
 See:
 - `notes/handoffs/2026-03-09-sps1-cli-changes.md`
 - `notes/handoffs/2026-03-09-pm-blocker-reconciliation.md`
+- `notes/handoffs/2026-03-09-sps2-home-manager-module.md`

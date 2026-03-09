@@ -64,3 +64,4 @@
 2026-03-09 00:30 [461e49e9] — Phase 2c.2: add --bypass-claude-check flag to strip CLAUDECODE from child env (opt-in via CLI)
 2026-03-08 19:22 [dd509ce8] — S.PS: spec project-status-sync service in WORKPLAN + design.md
 2026-03-09 02:00 [02fb4bf4] — PM: reconcile S.PS blockers (S.PS.2-4 unblocked, only S.PS.5 quality gate depends on 3.4)
+2026-03-09 02:00 [02fb4bf4] — S.PS.2: create project-status-sync home-manager module (hook + timer, platform-conditional)
