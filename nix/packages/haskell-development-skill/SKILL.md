@@ -118,6 +118,12 @@ provides before reaching for upstream packages. Common traps:
   misinterpreted, use a meaningful sum type or smart constructor instead
 - **Never use Float/Double for quantities** (money, counts, scores): use `Int64`
   representing minimal units
+- **Never weaken strict fields to Maybe.** Changing `!T` to `!(Maybe T)` on an existing
+  record field moves a compile-time guarantee to a runtime check — the compiler no longer
+  prevents constructing the record without a value. This is a design change, not an
+  implementation detail. STOP and ask the user for guidance before proceeding. Do not
+  rationalize compatibility based on runtime behavior ("callers still provide a value") —
+  the point of the strict type was to make omission impossible to compile
 
 ## Safety
 

@@ -318,6 +318,29 @@ data App = App
   }
 ```
 
+## Data Types: Never Weaken Strict Fields to Maybe
+
+```haskell
+-- BEFORE: strict field — compiler enforces every construction site provides a path
+data ProcessConfig = ProcessConfig
+  { pcOutputDir   :: !FilePath
+  , pcPromptFile  :: !FilePath
+  , pcCommand     :: !FilePath
+  }
+
+-- BAD: wrapping in Maybe "because callers can pass Nothing"
+-- Moves the guarantee from compile-time to runtime. The compiler no longer
+-- prevents constructing a ProcessConfig without a prompt path.
+data ProcessConfig = ProcessConfig
+  { pcOutputDir   :: !FilePath
+  , pcPromptFile  :: !(Maybe FilePath)  -- was !FilePath
+  , pcCommand     :: !FilePath
+  }
+
+-- If the field genuinely needs to become optional, that is a design change.
+-- STOP and ask the user before proceeding.
+```
+
 ## Safety: Partial Functions
 
 ```haskell
