@@ -60,4 +60,3 @@
 2026-03-08 26:00 [3acd283c] — PM: assess post-3.3 review gates (PromptBundle: not yet, ccs extract: no need), reconcile WORKPLAN
 2026-03-08 16:30 [23ce3f77] — Phase 2c.2: e2e pipeline verification PASS (steps 1-5), found CLAUDECODE env var issue and code fence output issue (both tracked in WORKPLAN)
 2026-03-08 27:00 [da8b289e] — Phase 2c.2: strip code fences from LLM output (STATUS.md, progress.log, handoff files were corrupted)
-2026-03-09 00:30 [6fe18d96] — Phase 2c.2: strip CLAUDECODE env var from child process in runLLMPrompt (prevents claude -p from refusing to start)

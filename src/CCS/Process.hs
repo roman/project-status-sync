@@ -26,10 +26,7 @@ import Data.Aeson (FromJSON (..), ToJSON (..), object, withObject, (.:), (.=))
 import RIO.Directory (createDirectoryIfMissing, doesDirectoryExist, listDirectory)
 import RIO.FilePath ((</>))
 import RIO.Time (Day, UTCTime (..), getCurrentTime, utctDay)
-
--- System.Environment: RIO does not re-export getEnvironment
-import System.Environment (getEnvironment)
-import System.Process.Typed (byteStringInput, proc, readProcess, setEnv, setStdin)
+import System.Process.Typed (byteStringInput, proc, readProcess, setStdin)
 
 data ProcessConfig = ProcessConfig
   { pcOutputDir :: !FilePath
@@ -143,16 +140,11 @@ runLLMPrompt
   -> RIO env (Maybe Text)
 runLLMPrompt ProcessConfig{..} promptPath inputText = do
   promptBytes <- readFileBinary promptPath
-  -- Strip CLAUDECODE so child `claude -p` doesn't refuse to start
-  -- (it guards against recursive invocations from a parent Claude session)
-  parentEnv <- liftIO getEnvironment
   let
-    childEnv = filter ((/= "CLAUDECODE") . fst) parentEnv
     promptText = T.decodeUtf8With T.lenientDecode promptBytes
     fullInput = T.encodeUtf8 $ promptText <> "\n" <> inputText
     processConfig =
       setStdin (byteStringInput (fromStrictBytes fullInput))
-        $ setEnv childEnv
         $ proc pcCommand pcCommandArgs
 
   (exitCode, outBs, errBs) <- readProcess processConfig
