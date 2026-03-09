@@ -62,3 +62,4 @@
 2026-03-08 27:00 [da8b289e] — Phase 2c.2: strip code fences from LLM output (STATUS.md, progress.log, handoff files were corrupted)
 2026-03-08 17:45 [ae563ec1] — Process: add spec-first implementation guardrails, revert non-compliant db7eb82
 2026-03-09 00:30 [461e49e9] — Phase 2c.2: add --bypass-claude-check flag to strip CLAUDECODE from child env (opt-in via CLI)
+2026-03-08 19:22 [dd509ce8] — S.PS: spec project-status-sync service in WORKPLAN + design.md

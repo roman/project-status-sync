@@ -734,17 +734,34 @@ LLM-generated markdown written directly to STATUS.md.
 
 ### Module Options
 
-```nix
-services.claude-conversation-sync = {
-  enable = lib.mkEnableOption "sync Claude conversations to knowledge base";
+Unified home-manager module: `programs.project-status-sync`. Enabling it registers both the
+SessionEnd hook (capture) and a periodic timer service (processing). Asserts
+`programs.claude-code.enable` is true. Replaces the standalone `ccs-session-end-hook` module.
 
-  # Base path for output (Notes repo or local)
-  outputPath = lib.mkOption {
-    type = lib.types.str;
-    example = "~/Notes/01 Projects";
+```nix
+programs.project-status-sync = {
+  enable = lib.mkEnableOption "session capture hook + periodic ccs aggregation";
+
+  # The ccs package (binary + bundled prompts at share/ccs/prompts/)
+  package = lib.mkOption {
+    type = lib.types.package;
+    default = inputs.self.packages.${system}.ccs;
   };
 
-  # Map git hosts/orgs to human-readable names
+  # Signal directory (shared between hook and aggregation service)
+  signalDir = lib.mkOption {
+    type = lib.types.str;
+    default = "${config.xdg.stateHome}/ccs/signals";
+  };
+
+  # Output directory (required — depends on user's setup)
+  outputDir = lib.mkOption {
+    type = lib.types.str;
+    description = "Output directory for EVENTS.jsonl, STATUS.md, handoffs, progress.log";
+    example = "/home/user/Notes/01 Projects";
+  };
+
+  # Map git hosts/orgs to human-readable names (blocked on CLI support)
   orgMappings = lib.mkOption {
     type = lib.types.attrsOf lib.types.str;
     default = {};
@@ -754,7 +771,7 @@ services.claude-conversation-sync = {
     };
   };
 
-  # Override specific project paths
+  # Override specific project output paths (blocked on CLI support)
   projectOverrides = lib.mkOption {
     type = lib.types.attrsOf lib.types.str;
     default = {};
@@ -769,18 +786,113 @@ services.claude-conversation-sync = {
     default = 20;
   };
 
-  # Command to invoke LLM
-  summaryCommand = lib.mkOption {
+  # Timer interval (minutes)
+  intervalMinutes = lib.mkOption {
+    type = lib.types.int;
+    default = 5;
+  };
+
+  # LLM command (e.g. "claude" or "airchat")
+  llmCommand = lib.mkOption {
     type = lib.types.str;
     default = "claude";
   };
 
-  summaryArgs = lib.mkOption {
+  # LLM command arguments
+  # Default: ["-p"] (for "claude -p")
+  # Work example: ["claude" "--" "-p"] (for "airchat claude -- -p")
+  llmArgs = lib.mkOption {
     type = lib.types.listOf lib.types.str;
     default = [ "-p" ];
   };
 };
 ```
+
+#### What the Module Produces
+
+**1. SessionEnd hook** (capture — writes `.available` signal files):
+```nix
+# Uses lib.mkAfter for composability with other SessionEnd hooks
+programs.claude-code.settings.hooks.SessionEnd = lib.mkAfter [{
+  matcher = "";
+  hooks = [{
+    type = "command";
+    command = "CCS_SIGNAL_DIR=${cfg.signalDir} ${hookPkg}/bin/ccs-session-end-hook";
+  }];
+}];
+```
+
+The `ccs-session-end-hook` binary is resolved internally from the same flake inputs
+(not a separate option — it is always the matching version of the ccs package).
+
+**2. Periodic timer** (processing — runs `ccs aggregate`):
+
+On Linux — systemd user service + timer:
+```nix
+systemd.user.services.project-status-sync = {
+  Unit.Description = "Project status sync — periodic ccs aggregation";
+  Service = {
+    Type = "oneshot";
+    ExecStart = aggregateCommand;
+    Environment = [
+      "PATH=${config.home.profileDirectory}/bin:/usr/bin:/bin"
+      "HOME=${config.home.homeDirectory}"
+    ];
+  };
+};
+systemd.user.timers.project-status-sync = {
+  Timer = {
+    OnBootSec = "${toString cfg.intervalMinutes}min";
+    OnUnitActiveSec = "${toString cfg.intervalMinutes}min";
+  };
+  Install.WantedBy = [ "timers.target" ];
+};
+```
+
+On macOS — launchd agent:
+```nix
+launchd.agents.project-status-sync = {
+  enable = true;
+  config = {
+    Label = "com.ccs.project-status-sync";
+    ProgramArguments = [ "${cfg.package}/bin/ccs" "aggregate" ... ];
+    StartInterval = cfg.intervalMinutes * 60;
+    EnvironmentVariables = {
+      PATH = "${config.home.profileDirectory}/bin:/usr/bin:/bin";
+      HOME = config.home.homeDirectory;
+    };
+    StandardOutPath = "/tmp/project-status-sync.log";
+    StandardErrorPath = "/tmp/project-status-sync.err";
+  };
+};
+```
+
+#### Aggregate Command
+
+```bash
+ccs aggregate \
+  --signal-dir ${signalDir} \
+  --quiet-minutes ${quietPeriodMinutes} \
+  --output-dir ${outputDir} \
+  --prompts-dir ${package}/share/ccs/prompts \
+  --llm-command ${llmCommand} \
+  --llm-arg arg1 --llm-arg arg2 ...
+```
+
+#### Notes
+
+- `orgMappings` and `projectOverrides` are spec'd but blocked on CLI support
+  (project name derivation in `CCS.Project` does not yet accept mappings)
+- Service sets PATH to include `${config.home.profileDirectory}/bin` so the LLM
+  command (`claude`, `airchat`, etc.) is found
+- API auth is the user's responsibility (claude stores its own credentials)
+- The quiet period check + lock file in `ccs aggregate` handle concurrency safety
+- `--bypass-claude-check` is not passed — the service runs outside Claude Code,
+  so the CLAUDECODE env var check is irrelevant
+- Failures are silent — the timer re-fires at the next interval. Future work may
+  add `OnFailure=` notification for systemd or equivalent for launchd
+- macOS logs to `/tmp/project-status-sync.{log,err}` (cleared on reboot).
+  Future work may use a persistent log path
 
 ---
 

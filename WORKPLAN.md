@@ -32,6 +32,7 @@
 | 3 | Status & Handoffs: generate outputs | **CODE COMPLETE** (3.4 awaits human quality validation) | 2c |
 | 4 | Retrieval: context injection (optional) | DEFERRED | 3 |
 | 5 | Archival: manage EVENTS.jsonl growth | DEFERRED | 4 |
+| S.PS | Project Status Sync: periodic service module | NOT STARTED | 3 (quality validation) |
 
 ## Phase Diagram
 
@@ -58,6 +59,8 @@ Phase 0: Spike ─────────────────────�
                            ▼                                    │
                     Phase 3: Status & Handoffs                  │
                            │                                    │
+                           ├──► S.PS: Project Status Sync       │
+                           │    (systemd/launchd service)       │
                            ▼                                    │
                     Phase 4: Retrieval (deferred)               │
                            │                                    │
@@ -672,3 +675,102 @@ See: `notes/handoffs/2026-03-03-session-tracking.md`
 - Only Implementer role loads haskell-development-skill and touches `src/`
 
 See: `notes/handoffs/2026-03-08-ralph-role-protocol.md`
+
+---
+
+## Supplementary: Project Status Sync Service
+
+**Goal**: Unified home-manager module that captures session signals (SessionEnd hook) AND
+runs periodic aggregation (systemd timer / launchd agent). Replaces the standalone
+`ccs-session-end-hook` module.
+
+### Design Decisions
+
+- **Merged module**: `programs.project-status-sync` handles both capture and processing.
+  Enabling it registers the SessionEnd hook into Claude Code AND sets up the timer service.
+- **Periodic timer, not daemon**: systemd timer (Linux) / launchd StartInterval (macOS)
+  invokes `ccs aggregate` every 5 minutes. Quiet period check already built into CLI.
+- **Configurable LLM command**: `--llm-command` / `--llm-arg` CLI flags allow using
+  `airchat claude -- -p` at work instead of the default `claude -p`.
+- **Prompts bundled in ccs package**: Prompts installed at `$out/share/ccs/prompts/` inside
+  the ccs derivation. Single `--prompts-dir DIR` CLI flag replaces 4 individual prompt flags.
+- **`--bypass-claude-check` not needed**: The service runs outside Claude Code, so the
+  CLAUDECODE env var check is irrelevant. Module does not pass or expose this flag.
+- **Hook composability**: Use `lib.mkAfter` when setting `hooks.SessionEnd` so other modules
+  can also register SessionEnd hooks without conflicts.
+- **Failures are silent**: If `ccs aggregate` fails, the timer re-fires in 5 minutes. No
+  alerting mechanism. Future work may add `OnFailure=` notification.
+
+### Chunks
+
+#### S.PS.1: CLI changes
+
+- Add `--llm-command CMD` flag to `ccs aggregate` (default: `claude`)
+- Add `--llm-arg ARG` repeatable flag (default when none given: `-p`).
+  Example: `--llm-command airchat --llm-arg claude --llm-arg -- --llm-arg -p`
+- Add `--prompts-dir DIR` flag replacing `--prompt-file`, `--handoff-prompt`,
+  `--progress-prompt`, `--synthesis-prompt`. Code resolves conventional filenames
+  (`session-extraction.md`, etc.) within the directory.
+- Keep individual `--*-prompt` flags as overrides (take precedence over `--prompts-dir`)
+- Bundle prompts in the ccs Nix package at `$out/share/ccs/prompts/`
+- Wire `acLLMCommand`/`acLLMArgs`/`acPromptsDir` into `ProcessConfig`
+- Files: `app/Main.hs`, `src/CCS/Process.hs`, `nix/packages/ccs/default.nix`
+
+#### S.PS.2: project-status-sync home-manager module
+
+- Create `nix/modules/home-manager/project-status-sync/default.nix`
+- Registers SessionEnd hook (via `lib.mkAfter`) + sets up periodic timer service
+- Asserts `programs.claude-code.enable` with readable error message
+- Platform-conditional: systemd on Linux, launchd on macOS
+- Auto-discovered by nixDir as `homeManagerModules.project-status-sync`
+
+Module options (`programs.project-status-sync`):
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enable` | bool | false | Enable capture hook + periodic aggregation |
+| `package` | package | `ccs` | Binary providing `ccs aggregate` + bundled prompts |
+| `signalDir` | str | `${xdg.stateHome}/ccs/signals` | Signal directory (shared by hook and service) |
+| `outputDir` | str | **(required)** | Output for EVENTS.jsonl, STATUS.md, handoffs |
+| `quietPeriodMinutes` | int | 20 | Quiet period before processing |
+| `intervalMinutes` | int | 5 | Timer frequency |
+| `llmCommand` | str | `"claude"` | LLM binary (e.g. `"airchat"`) |
+| `llmArgs` | listOf str | `["-p"]` | Args for LLM command (e.g. `["claude" "--" "-p"]`) |
+| `orgMappings` | attrsOf str | `{}` | Map git host/org → human name (blocked on CLI) |
+| `projectOverrides` | attrsOf str | `{}` | Override project output paths (blocked on CLI) |
+
+#### S.PS.3: Deprecate ccs-session-end-hook module
+
+- Mark existing module as deprecated
+- Migration: `programs.claude-code.plugins.conversation-sync` → `programs.project-status-sync`
+
+#### S.PS.4: Integration in zoo.nix
+
+- Replace `homeManagerModules.ccs-session-end-hook` with `homeManagerModules.project-status-sync`
+- Configure `programs.project-status-sync` with `outputDir`
+- `home-manager switch` activates both hook and timer
+
+#### S.PS.5: Verification
+
+- SessionEnd hook fires and writes `.available` signal
+- Timer fires on schedule (`systemctl --user list-timers`)
+- `ccs aggregate` runs and produces output
+- LLM subprocess finds `claude`/`airchat` on PATH
+- Lock file prevents concurrent runs
+
+### Gates
+
+- [ ] `--llm-command` / `--llm-arg` / `--prompts-dir` flags work (`cabal test`)
+- [ ] Prompts bundled in ccs package (`nix build .#ccs --impure`)
+- [ ] Module evaluates on both Linux and macOS
+- [ ] SessionEnd hook registers correctly (composable via `mkAfter`)
+- [ ] Timer activates after `home-manager switch`
+- [ ] End-to-end: session end → signal → timer fires → outputs generated
+
+### Progress
+
+- [ ] S.PS.1: CLI changes (--llm-command, --llm-arg, --prompts-dir, bundle prompts)
+- [ ] S.PS.2: project-status-sync home-manager module
+- [ ] S.PS.3: Deprecate ccs-session-end-hook module
+- [ ] S.PS.4: Integration in zoo.nix
+- [ ] S.PS.5: Verification
