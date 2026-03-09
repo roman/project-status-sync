@@ -25,14 +25,14 @@
 | Infra.1-3 | flake.nix, Haskell skeleton, beads | **DONE** | — |
 | Infra.4 | MicroVM sandboxing for ralph loops | **ABANDONED** | Infra.1-3 |
 | 0 | Spike: validate extraction approach | PARTIAL | — |
-| 1 | Capture: hooks + signals | DONE (verify build) | — |
-| 2a | Tooling: pre-filter, record-event, aggregation | DONE (verify build) | Infra, Phase 1 (signal format) |
+| 1 | Capture: hooks + signals | **DONE** | — |
+| 2a | Tooling: pre-filter, record-event, aggregation | **DONE** | Infra, Phase 1 (signal format) |
 | 2b | Prompts: extraction, handoff, progress, synthesis | **DONE** | Infra |
 | 2c | Integration: wire everything together | **DONE** (2c.2 verified 2026-03-08, code fence stripping TODO) | 1, 2a, 2b |
 | 3 | Status & Handoffs: generate outputs | **CODE COMPLETE** (3.4 awaits human quality validation) | 2c |
 | 4 | Retrieval: context injection (optional) | DEFERRED | 3 |
 | 5 | Archival: manage EVENTS.jsonl growth | DEFERRED | 4 |
-| S.PS | Project Status Sync: periodic service module | NOT STARTED | 3 (quality validation) |
+| S.PS | Project Status Sync: periodic service module | **STARTED** | S.PS.5 quality portion blocked by 3.4 |
 
 ## Phase Diagram
 
@@ -716,7 +716,7 @@ runs periodic aggregation (systemd timer / launchd agent). Replaces the standalo
 - Wire `acLLMCommand`/`acLLMArgs`/`acPromptsDir` into `ProcessConfig`
 - Files: `app/Main.hs`, `src/CCS/Process.hs`, `nix/packages/ccs/default.nix`
 
-#### S.PS.2: project-status-sync home-manager module
+#### S.PS.2: project-status-sync home-manager module (NEXT — unblocked)
 
 - Create `nix/modules/home-manager/project-status-sync/default.nix`
 - Registers SessionEnd hook (via `lib.mkAfter`) + sets up periodic timer service
@@ -750,17 +750,18 @@ Module options (`programs.project-status-sync`):
 - Configure `programs.project-status-sync` with `outputDir`
 - `home-manager switch` activates both hook and timer
 
-#### S.PS.5: Verification
+#### S.PS.5: Verification (mechanical items unblocked; quality judgment blocked by 3.4)
 
 - SessionEnd hook fires and writes `.available` signal
 - Timer fires on schedule (`systemctl --user list-timers`)
 - `ccs aggregate` runs and produces output
 - LLM subprocess finds `claude`/`airchat` on PATH
 - Lock file prevents concurrent runs
+- Quality of LLM outputs (STATUS.md, handoffs) — blocked by 3.4 cold read
 
 ### Gates
 
-- [ ] `--llm-command` / `--llm-arg` / `--prompts-dir` flags work (`cabal test`)
+- [ ] `--llm-command` / `--llm-arg` / `--prompts-dir` flags work (`cabal test` — 79 tests pass)
 - [ ] Prompts bundled in ccs package (`nix build .#ccs --impure`)
 - [ ] Module evaluates on both Linux and macOS
 - [ ] SessionEnd hook registers correctly (composable via `mkAfter`)
@@ -774,3 +775,13 @@ Module options (`programs.project-status-sync`):
 - [ ] S.PS.3: Deprecate ccs-session-end-hook module
 - [ ] S.PS.4: Integration in zoo.nix
 - [ ] S.PS.5: Verification
+
+**Blocker reconciliation** (2026-03-09): S.PS.2-4 were previously listed as blocked by 3.4
+(quality validation). This was overly conservative. 3.4 tests whether LLM-generated output
+is subjectively useful — it says nothing about the Nix module that wraps the CLI, the
+deprecation of the old module, or the zoo.nix integration. S.PS.2-4 are pure infrastructure
+and unblocked. Only S.PS.5's quality judgment depends on 3.4.
+
+See:
+- `notes/handoffs/2026-03-09-sps1-cli-changes.md`
+- `notes/handoffs/2026-03-09-pm-blocker-reconciliation.md`
