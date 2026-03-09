@@ -41,14 +41,30 @@ When implementing a WORKPLAN item:
 
 1. **Quote the item verbatim** — copy the WORKPLAN text into your working context
 2. **Identify each requirement** — list what the spec asks for (CLI flag, specific behavior, etc.)
-3. **Implement to spec** — address each requirement, not just the spirit of the task
-4. **If you disagree with the spec** — write a proposal or ask the user. Never silently deviate.
+3. **Cross-check approved proposals** — search `notes/proposals/` for APPROVED proposals
+   whose `Affects:` line overlaps with the types, modules, or APIs you are about to change.
+   If a conflict exists between the WORKPLAN item and an approved proposal:
+   - STOP — do not implement
+   - Write a proposal amendment or new proposal explaining why the earlier decision
+     should be revised
+   - Get approval before proceeding
+
+   Examples of changes that require this check:
+   - Adding/removing `Maybe` wrappers on record fields (changes API contract)
+   - Changing a type from mandatory to optional or vice versa
+   - Renaming or removing fields from a shared record
+   - Altering the signature of a function used across modules
+   - Changing CLI flag semantics (required → optional, new defaults)
+
+4. **Implement to spec** — address each requirement, not just the spirit of the task
+5. **If you disagree with the spec** — write a proposal or ask the user. Never silently deviate.
 
 Handoff docs for implementation commits must include a **Spec Compliance** section:
 
 ```
 ## Spec Compliance
 WORKPLAN item: "<quoted text>"
+- Approved proposals checked: [list or "none affecting these types"]
 - Requirement 1: [met/deviated] — explanation
 - Requirement 2: [met/deviated] — explanation
 ```
@@ -68,14 +84,15 @@ After implementation and before committing:
 ```bash
 # Correct workflow (implementation commits):
 0. Quote the WORKPLAN item — identify each specific requirement
-1. Make code changes addressing each requirement
-2. Run `cabal test` — do not proceed if tests fail
-3. Spawn code-critic with WORKPLAN item text (address blocker/major, max 2 rounds)
-4. Update WORKPLAN.md (progress, status, handoff notes)
-5. Append to progress.log
-6. Create/update handoff in notes/handoffs/ (must include Spec Compliance section)
-7. Stage ALL files together
-8. Commit with descriptive message
+1. Cross-check notes/proposals/ for APPROVED proposals affecting same types/APIs
+2. Make code changes addressing each requirement
+3. Run `cabal test` — do not proceed if tests fail
+4. Spawn code-critic with WORKPLAN item text (address blocker/major, max 2 rounds)
+5. Update WORKPLAN.md (progress, status, handoff notes)
+6. Append to progress.log
+7. Create/update handoff in notes/handoffs/ (must include Spec Compliance section)
+8. Stage ALL files together
+9. Commit with descriptive message
 
 # WRONG - never do this:
 git add src/
