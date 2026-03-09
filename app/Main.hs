@@ -7,6 +7,7 @@ import CCS.Aggregate (AggregateResult (..), runAggregation)
 import CCS.Event (EventSource (..), EventTag (..), SessionEvent (..), appendEvent)
 import CCS.Filter (filterTranscriptFile)
 import CCS.Process (ProcessConfig (..), processSession)
+import RIO.FilePath ((</>))
 import RIO.Text qualified as T
 
 import Options.Applicative (
@@ -43,10 +44,13 @@ data AggregateConfig = AggregateConfig
   { acSignalDir :: !FilePath
   , acQuietMinutes :: !Int
   , acOutputDir :: !FilePath
-  , acPromptFile :: !FilePath
-  , acHandoffPrompt :: !FilePath
-  , acProgressPrompt :: !FilePath
-  , acSynthesisPrompt :: !FilePath
+  , acPromptFile :: !(Maybe FilePath)
+  , acHandoffPrompt :: !(Maybe FilePath)
+  , acProgressPrompt :: !(Maybe FilePath)
+  , acSynthesisPrompt :: !(Maybe FilePath)
+  , acPromptsDir :: !(Maybe FilePath)
+  , acLLMCommand :: !String
+  , acLLMArgs :: ![String]
   , acBypassClaudeCheck :: !Bool
   }
 
@@ -73,15 +77,21 @@ main = do
     AggregateCmd AggregateConfig{..} -> do
       let
         threshold = secondsToNominalDiffTime (fromIntegral acQuietMinutes * 60)
+        llmArgs = if null acLLMArgs then ["-p"] else acLLMArgs
+      promptFile <- resolvePrompt acPromptFile acPromptsDir "session-extraction.md" "prompt-file"
+      handoffPrompt <- resolvePrompt acHandoffPrompt acPromptsDir "handoff-generation.md" "handoff-prompt"
+      progressPrompt <- resolvePrompt acProgressPrompt acPromptsDir "progress-entry.md" "progress-prompt"
+      synthesisPrompt <- resolvePrompt acSynthesisPrompt acPromptsDir "status-synthesis.md" "synthesis-prompt"
+      let
         config =
           ProcessConfig
             { pcOutputDir = acOutputDir
-            , pcPromptFile = acPromptFile
-            , pcHandoffPrompt = acHandoffPrompt
-            , pcProgressPrompt = acProgressPrompt
-            , pcSynthesisPrompt = acSynthesisPrompt
-            , pcCommand = "claude"
-            , pcCommandArgs = ["-p"]
+            , pcPromptFile = promptFile
+            , pcHandoffPrompt = handoffPrompt
+            , pcProgressPrompt = progressPrompt
+            , pcSynthesisPrompt = synthesisPrompt
+            , pcCommand = acLLMCommand
+            , pcCommandArgs = llmArgs
             , pcBypassClaudeCheck = acBypassClaudeCheck
             }
       result <- runAggregation acSignalDir threshold (processSession config)
@@ -132,11 +142,27 @@ aggregateParser =
     <$> option str (long "signal-dir" <> metavar "DIR" <> help "Directory containing .available signal files")
     <*> option auto (long "quiet-minutes" <> metavar "N" <> value 20 <> help "Quiet period in minutes (default: 20)")
     <*> option str (long "output-dir" <> metavar "DIR" <> help "Output directory for EVENTS.jsonl")
-    <*> option str (long "prompt-file" <> metavar "FILE" <> help "Path to extraction prompt file")
-    <*> option str (long "handoff-prompt" <> metavar "FILE" <> help "Path to handoff generation prompt file")
-    <*> option str (long "progress-prompt" <> metavar "FILE" <> help "Path to progress entry prompt file")
-    <*> option str (long "synthesis-prompt" <> metavar "FILE" <> help "Path to status synthesis prompt file")
+    <*> optional (option str (long "prompt-file" <> metavar "FILE" <> help "Override extraction prompt file"))
+    <*> optional (option str (long "handoff-prompt" <> metavar "FILE" <> help "Override handoff generation prompt file"))
+    <*> optional (option str (long "progress-prompt" <> metavar "FILE" <> help "Override progress entry prompt file"))
+    <*> optional (option str (long "synthesis-prompt" <> metavar "FILE" <> help "Override status synthesis prompt file"))
+    <*> optional (option str (long "prompts-dir" <> metavar "DIR" <> help "Directory with prompt files (session-extraction.md, handoff-generation.md, progress-entry.md, status-synthesis.md)"))
+    <*> option str (long "llm-command" <> metavar "CMD" <> value "claude" <> help "LLM command (default: claude)")
+    <*> many (option str (long "llm-arg" <> metavar "ARG" <> help "LLM command argument (repeatable; default: -p)"))
     <*> switch (long "bypass-claude-check" <> help "Strip CLAUDECODE env var from child processes (needed inside ralph loops)")
+
+resolvePrompt
+  :: HasLogFunc env
+  => Maybe FilePath
+  -> Maybe FilePath
+  -> String
+  -> String
+  -> RIO env FilePath
+resolvePrompt (Just override) _ _ _ = pure override
+resolvePrompt Nothing (Just dir) conventionalName _ = pure (dir </> conventionalName)
+resolvePrompt Nothing Nothing _ flagName = do
+  logError $ "Either --prompts-dir or --" <> fromString flagName <> " is required"
+  exitFailure
 
 versionOpt :: Parser (a -> a)
 versionOpt =

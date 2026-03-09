@@ -32,7 +32,7 @@
 | 3 | Status & Handoffs: generate outputs | **CODE COMPLETE** (3.4 awaits human quality validation) | 2c |
 | 4 | Retrieval: context injection (optional) | DEFERRED | 3 |
 | 5 | Archival: manage EVENTS.jsonl growth | DEFERRED | 4 |
-| S.PS | Project Status Sync: periodic service module | IN PROGRESS (S.PS.2 done) | S.PS.5 quality portion blocked by 3.4 |
+| S.PS | Project Status Sync: periodic service module | IN PROGRESS (S.PS.1-2 done) | S.PS.5 quality portion blocked by 3.4 |
 
 ## Phase Diagram
 
@@ -761,8 +761,8 @@ Module options (`programs.project-status-sync`):
 
 ### Gates
 
-- [ ] `--llm-command` / `--llm-arg` / `--prompts-dir` flags work (`cabal test` — 79 tests pass)
-- [ ] Prompts bundled in ccs package (`nix build .#ccs --impure`)
+- [x] `--llm-command` / `--llm-arg` / `--prompts-dir` flags work (`cabal test` — 79 tests pass)
+- [x] Prompts bundled in ccs package (`nix build .#ccs --impure`) — postInstall copies prompts to `$out/share/ccs/prompts/`
 - [ ] Module evaluates on both Linux and macOS
 - [ ] SessionEnd hook registers correctly (composable via `mkAfter`)
 - [ ] Timer activates after `home-manager switch`
@@ -770,7 +770,7 @@ Module options (`programs.project-status-sync`):
 
 ### Progress
 
-- [ ] S.PS.1: CLI changes (--llm-command, --llm-arg, --prompts-dir, bundle prompts) — **NEXT**
+- [x] S.PS.1: CLI changes (--llm-command, --llm-arg, --prompts-dir, bundle prompts)
 - [X] S.PS.2: project-status-sync home-manager module
 - [ ] S.PS.3: Deprecate ccs-session-end-hook module
 - [ ] S.PS.4: Integration in zoo.nix
@@ -790,3 +790,4 @@ and unblocked from 3.4. Only S.PS.5's quality judgment depends on 3.4.
 See:
 - `notes/handoffs/2026-03-09-pm-blocker-reconciliation.md`
 - `notes/handoffs/2026-03-09-sps2-home-manager-module.md`
+- `notes/handoffs/2026-03-09-sps1-cli-flags.md`
