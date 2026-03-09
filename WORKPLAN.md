@@ -771,7 +771,7 @@ Module options (`programs.project-status-sync`):
 
 - [x] S.PS.1: CLI changes (--llm-command, --llm-arg, embedded prompts via file-embed)
 - [X] S.PS.2: project-status-sync home-manager module
-- [ ] S.PS.3: Deprecate ccs-session-end-hook module
+- [x] S.PS.3: Deprecate ccs-session-end-hook module
 - [ ] S.PS.4: Integration in zoo.nix
 - [ ] S.PS.5: Verification
 

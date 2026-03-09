@@ -36,6 +36,14 @@ in
   };
 
   config = lib.mkIf (claudeCfg.enable && cfg.enable) {
+    warnings = [
+      ''
+        programs.claude-code.plugins.conversation-sync is deprecated.
+        Use programs.project-status-sync instead, which provides both the
+        SessionEnd hook and a periodic aggregation timer.
+      ''
+    ];
+
     programs.claude-code.settings.hooks.SessionEnd = [
       {
         matcher = "";

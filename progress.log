@@ -68,3 +68,4 @@
 2026-03-09 03:00 [0b9c9e46] — PM: fix S.PS.1 state — remove broken handoff ref, clarify S.PS.1 blocks S.PS.2-4 at runtime
 2026-03-09 04:00 [23b87bcd] — S.PS.1: add --llm-command, --llm-arg, --prompts-dir CLI flags and bundle prompts in Nix package
 2026-03-09 07:15 [ced1cc00] — S.PS.1: embed prompts in binary via file-embed, remove --prompts-dir flag and Nix prompt bundling
+2026-03-09 08:00 [27849cbf] — S.PS.3: deprecate ccs-session-end-hook module with warning pointing to project-status-sync
