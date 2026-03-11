@@ -1,3 +1,4 @@
+_inputs:
 { lib, pkgs, ... }:
 
 {

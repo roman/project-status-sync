@@ -1,3 +1,4 @@
+_inputs:
 { pkgs, ... }:
 
 let
