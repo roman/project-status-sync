@@ -23,6 +23,7 @@ import System.Random (randomRIO)
 
 import Data.Aeson (Value, decode, encode)
 import Data.Aeson.QQ (aesonQQ)
+import RIO.Map qualified as Map
 import Test.QuickCheck
 import Test.Tasty
 import Test.Tasty.HUnit
@@ -62,9 +63,12 @@ import CCS.Process (
   stripTopicLine,
  )
 import CCS.Project (
+  OrgMappings (..),
   ProjectKey (..),
   ProjectName (..),
+  ProjectOverrides (..),
   deriveName,
+  deriveOutputSubpath,
   normalizeRemoteUrl,
   stripDotGit,
  )
@@ -181,6 +185,12 @@ eventTests =
         lineCount @?= 2
     ]
 
+noMappings :: OrgMappings
+noMappings = OrgMappings Map.empty
+
+noOverrides :: ProjectOverrides
+noOverrides = ProjectOverrides Map.empty
+
 projectTests :: TestTree
 projectTests =
   testGroup
@@ -214,6 +224,71 @@ projectTests =
         , testCase "HTTPS with token auth"
             $ normalizeRemoteUrl "https://token@github.com/user/repo.git"
             @?= "github.com/user/repo"
+        ]
+    , testGroup
+        "deriveOutputSubpath"
+        [ testCase "fallback to last path component"
+            $ deriveOutputSubpath (ProjectKey "github.com/user/repo") noMappings noOverrides
+            @?= "repo"
+        , testCase "override takes priority over org mapping"
+            $ let
+                mappings = OrgMappings (Map.singleton "github.com/user" "User")
+                overrides = ProjectOverrides (Map.singleton "github.com/user/repo" "Custom/path")
+              in
+                deriveOutputSubpath (ProjectKey "github.com/user/repo") mappings overrides
+                  @?= "Custom/path"
+        , testCase "org mapping produces org/repo path"
+            $ let
+                mappings = OrgMappings (Map.singleton "git.musta.ch/airbnb" "Airbnb")
+              in
+                deriveOutputSubpath (ProjectKey "git.musta.ch/airbnb/ergo") mappings noOverrides
+                  @?= "Airbnb/ergo"
+        , testCase "longest prefix match wins"
+            $ let
+                mappings =
+                  OrgMappings
+                    $ Map.fromList
+                      [ ("git.musta.ch", "Corp")
+                      , ("git.musta.ch/airbnb", "Airbnb")
+                      ]
+              in
+                deriveOutputSubpath (ProjectKey "git.musta.ch/airbnb/ergo") mappings noOverrides
+                  @?= "Airbnb/ergo"
+        , testCase "shorter prefix used when longer doesn't match"
+            $ let
+                mappings =
+                  OrgMappings
+                    $ Map.fromList
+                      [ ("git.musta.ch", "Corp")
+                      , ("git.musta.ch/airbnb", "Airbnb")
+                      ]
+              in
+                deriveOutputSubpath (ProjectKey "git.musta.ch/other/repo") mappings noOverrides
+                  @?= "Corp/other/repo"
+        , testCase "no matching prefix falls back to deriveName"
+            $ let
+                mappings = OrgMappings (Map.singleton "gitlab.com/org" "Org")
+              in
+                deriveOutputSubpath (ProjectKey "github.com/user/repo") mappings noOverrides
+                  @?= "repo"
+        , testCase "prefix must match at path boundary"
+            $ let
+                mappings = OrgMappings (Map.singleton "git.musta.ch/air" "Air")
+              in
+                deriveOutputSubpath (ProjectKey "git.musta.ch/airbnb/ergo") mappings noOverrides
+                  @?= "ergo"
+        , testCase "exact key match in override"
+            $ let
+                overrides = ProjectOverrides (Map.singleton "github.com/user/legacy" "Archived/legacy")
+              in
+                deriveOutputSubpath (ProjectKey "github.com/user/legacy") noMappings overrides
+                  @?= "Archived/legacy"
+        , testCase "key exactly equals org prefix falls back to deriveName"
+            $ let
+                mappings = OrgMappings (Map.singleton "github.com/org" "Org")
+              in
+                deriveOutputSubpath (ProjectKey "github.com/org") mappings noOverrides
+                  @?= "org"
         ]
     ]
 
@@ -727,6 +802,7 @@ propertyTests =
     , testGroup "Signal" signalProps
     , testGroup "Filter" filterProps
     , testGroup "Process" processProps
+    , testGroup "deriveOutputSubpath" deriveOutputSubpathProps
     ]
 
 normalizeRemoteUrlProps :: [TestTree]
@@ -829,6 +905,25 @@ filterProps =
         result = filterTranscript (LBS.pack bs)
       in
         T.length result `seq` True
+  ]
+
+deriveOutputSubpathProps :: [TestTree]
+deriveOutputSubpathProps =
+  [ testProperty "empty mappings falls back to deriveName"
+      $ forAll genNonEmptyText
+      $ \key ->
+        deriveOutputSubpath (ProjectKey ("host/" <> key)) noMappings noOverrides
+          === T.unpack (deriveName ("host/" <> key))
+  , testProperty "override always wins over mapping"
+      $ forAll genNonEmptyText
+      $ \name ->
+        let
+          key = "github.com/org/" <> name
+          overrides = ProjectOverrides (Map.singleton key ("Override/" <> name))
+          mappings = OrgMappings (Map.singleton "github.com/org" "Mapped")
+        in
+          deriveOutputSubpath (ProjectKey key) mappings overrides
+            === T.unpack ("Override/" <> name)
   ]
 
 processProps :: [TestTree]

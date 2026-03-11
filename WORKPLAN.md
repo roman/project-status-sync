@@ -825,7 +825,9 @@ different orgs would collide or lack organizational context.
 - [x] S.PS.3: Deprecate ccs-session-end-hook module
 - [ ] S.PS.4: Integration in zoo.nix
 - [ ] S.PS.5: Verification
-- [ ] S.PS.6: orgMappings and projectOverrides (6a: library, 6b: CLI, 6c: Nix wiring)
+- [x] S.PS.6a: Library — output path derivation with OrgMappings, ProjectOverrides, deriveOutputSubpath
+- [ ] S.PS.6b: CLI — --org-mapping and --project-override flags
+- [ ] S.PS.6c: Nix module — wire orgMappings/projectOverrides options to CLI flags
 
 **Runtime dependency** (2026-03-09): S.PS.2 module passes `--llm-command`
 and `--llm-arg` flags to `ccs aggregate`. Prompts are embedded in the binary — no
@@ -846,3 +848,4 @@ See:
 - `notes/handoffs/2026-03-09-pm-blocker-reconciliation.md`
 - `notes/handoffs/2026-03-09-sps2-home-manager-module.md`
 - `notes/handoffs/2026-03-09-sps1-cli-flags.md`
+- `notes/handoffs/2026-03-11-sps6a-output-path-derivation.md`

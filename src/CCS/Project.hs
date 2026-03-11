@@ -2,13 +2,17 @@ module CCS.Project (
   ProjectKey (..),
   ProjectName (..),
   Project (..),
+  OrgMappings (..),
+  ProjectOverrides (..),
   identifyProject,
   normalizeRemoteUrl,
   stripDotGit,
   deriveName,
+  deriveOutputSubpath,
 ) where
 
 import RIO
+import RIO.Map qualified as Map
 import RIO.Text qualified as T
 
 -- Data.Text: RIO.Text does not re-export breakOn/breakOnEnd
@@ -124,6 +128,44 @@ directoryFallback cwd =
       , projectName = ProjectName name
       , projectPath = cwd
       }
+
+newtype OrgMappings = OrgMappings (Map Text Text)
+  deriving stock (Eq, Show)
+
+newtype ProjectOverrides = ProjectOverrides (Map Text Text)
+  deriving stock (Eq, Show)
+
+deriveOutputSubpath :: ProjectKey -> OrgMappings -> ProjectOverrides -> FilePath
+deriveOutputSubpath (ProjectKey key) (OrgMappings mappings) (ProjectOverrides overrides) =
+  case Map.lookup key overrides of
+    Just path -> T.unpack path
+    Nothing -> case longestPrefixMatch key mappings of
+      Just (prefix, replacement) ->
+        let
+          rest = T.drop (T.length prefix) key
+          trimmed = fromMaybe rest (T.stripPrefix "/" rest)
+        in
+          if T.null trimmed
+            then T.unpack (deriveName key)
+            else T.unpack (replacement <> "/" <> trimmed)
+      Nothing -> T.unpack (deriveName key)
+
+longestPrefixMatch :: Text -> Map Text Text -> Maybe (Text, Text)
+longestPrefixMatch key mappings =
+  let
+    candidates = filter (\(prefix, _) -> prefixMatches prefix key) (Map.toList mappings)
+  in
+    case candidates of
+      [] -> Nothing
+      (first : rest) ->
+        let
+          best = foldl' (\a b -> if T.length (fst a) >= T.length (fst b) then a else b) first rest
+        in
+          Just best
+
+prefixMatches :: Text -> Text -> Bool
+prefixMatches prefix key =
+  prefix == key || (prefix <> "/") `T.isPrefixOf` key
 
 gitCommand
   :: (HasLogFunc env, MonadIO m, MonadReader env m)
