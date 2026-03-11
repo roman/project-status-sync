@@ -67,6 +67,7 @@ executable ccs
     , file-embed
     , optparse-applicative
     , rio
+    , text
 
 test-suite ccs-test
   import:           warnings, extensions

@@ -20,7 +20,7 @@ import Data.Text qualified as DT
 import CCS.Aggregate (AvailabilitySignal (..), SessionId (..))
 import CCS.Event (EventSource (..), EventTag (..), SessionEvent (..), appendJsonLine)
 import CCS.Filter (filterTranscriptFile)
-import CCS.Project (Project (..), ProjectKey (..), ProjectName (..), identifyProject)
+import CCS.Project (OrgMappings (..), Project (..), ProjectKey (..), ProjectName (..), ProjectOverrides (..), deriveOutputSubpath, identifyProject)
 import Data.Aeson (FromJSON (..), ToJSON (..), object, withObject, (.:), (.=))
 
 import RIO.Directory (createDirectoryIfMissing, doesDirectoryExist, listDirectory)
@@ -40,6 +40,8 @@ data ProcessConfig = ProcessConfig
   , pcCommand :: !FilePath
   , pcCommandArgs :: ![String]
   , pcBypassClaudeCheck :: !Bool
+  , pcOrgMappings :: !OrgMappings
+  , pcProjectOverrides :: !ProjectOverrides
   }
   deriving stock (Show)
 
@@ -207,8 +209,7 @@ processSession config@ProcessConfig{..} signal = do
                 , eleProjectName = projectName project
                 , eleEvent = event
                 }
-            ProjectName pname = projectName project
-            projectDir = pcOutputDir </> T.unpack pname
+            projectDir = pcOutputDir </> deriveOutputSubpath (projectKey project) pcOrgMappings pcProjectOverrides
             eventsFile = projectDir </> "EVENTS.jsonl"
 
           createDirectoryIfMissing True projectDir

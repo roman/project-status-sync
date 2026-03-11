@@ -826,7 +826,7 @@ different orgs would collide or lack organizational context.
 - [ ] S.PS.4: Integration in zoo.nix
 - [ ] S.PS.5: Verification
 - [x] S.PS.6a: Library — output path derivation with OrgMappings, ProjectOverrides, deriveOutputSubpath
-- [ ] S.PS.6b: CLI — --org-mapping and --project-override flags
+- [x] S.PS.6b: CLI — --org-mapping and --project-override flags
 - [ ] S.PS.6c: Nix module — wire orgMappings/projectOverrides options to CLI flags
 
 **Runtime dependency** (2026-03-09): S.PS.2 module passes `--llm-command`
@@ -849,3 +849,4 @@ See:
 - `notes/handoffs/2026-03-09-sps2-home-manager-module.md`
 - `notes/handoffs/2026-03-09-sps1-cli-flags.md`
 - `notes/handoffs/2026-03-11-sps6a-output-path-derivation.md`
+- `notes/handoffs/2026-03-11-sps6b-cli-mapping-flags.md`

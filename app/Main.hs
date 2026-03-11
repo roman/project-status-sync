@@ -7,8 +7,13 @@ import CCS.Aggregate (AggregateResult (..), runAggregation)
 import CCS.Event (EventSource (..), EventTag (..), SessionEvent (..), appendEvent)
 import CCS.Filter (filterTranscriptFile)
 import CCS.Process (ProcessConfig (..), processSession)
+import CCS.Project (OrgMappings (..), ProjectOverrides (..))
 import Prompts qualified
+import RIO.Map qualified as Map
 import RIO.Text qualified as T
+
+-- Data.Text: RIO.Text does not re-export breakOn
+import Data.Text qualified as DT
 
 import Options.Applicative (
   Mod,
@@ -25,6 +30,7 @@ import Options.Applicative (
   info,
   infoOption,
   long,
+  maybeReader,
   metavar,
   option,
   progDesc,
@@ -51,6 +57,8 @@ data AggregateConfig = AggregateConfig
   , acLLMCommand :: !String
   , acLLMArgs :: ![String]
   , acBypassClaudeCheck :: !Bool
+  , acOrgMappings :: !OrgMappings
+  , acProjectOverrides :: !ProjectOverrides
   }
 
 data Command
@@ -92,6 +100,8 @@ main = do
             , pcCommand = acLLMCommand
             , pcCommandArgs = llmArgs
             , pcBypassClaudeCheck = acBypassClaudeCheck
+            , pcOrgMappings = acOrgMappings
+            , pcProjectOverrides = acProjectOverrides
             }
       result <- runAggregation acSignalDir threshold (processSession config)
       case result of
@@ -148,6 +158,19 @@ aggregateParser =
     <*> option str (long "llm-command" <> metavar "CMD" <> value "claude" <> help "LLM command (default: claude)")
     <*> many (option str (long "llm-arg" <> metavar "ARG" <> help "LLM command argument (repeatable; default: -p)"))
     <*> switch (long "bypass-claude-check" <> help "Strip CLAUDECODE env var from child processes (needed inside ralph loops)")
+    <*> fmap (OrgMappings . Map.fromList) (many (option (maybeReader parseKeyValue) (long "org-mapping" <> metavar "KEY=VALUE" <> help "Map git host/org prefix to name (repeatable)")))
+    <*> fmap (ProjectOverrides . Map.fromList) (many (option (maybeReader parseKeyValue) (long "project-override" <> metavar "KEY=PATH" <> help "Override output subpath for project key (repeatable)")))
+
+parseKeyValue :: String -> Maybe (Text, Text)
+parseKeyValue s =
+  let
+    t = T.pack s
+    (key, eqVal) = DT.breakOn "=" t
+  in
+    case T.uncons eqVal of
+      Just ('=', val)
+        | not (T.null key) && not (T.null val) -> Just (key, val)
+      _ -> Nothing
 
 resolvePrompt
   :: MonadIO m
