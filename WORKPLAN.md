@@ -32,7 +32,7 @@
 | 3 | Status & Handoffs: generate outputs | **CODE COMPLETE** (3.4 awaits human quality validation) | 2c |
 | 4 | Retrieval: context injection (optional) | DEFERRED | 3 |
 | 5 | Archival: manage EVENTS.jsonl growth | DEFERRED | 4 |
-| S.PS | Project Status Sync: periodic service module | IN PROGRESS (S.PS.1-3 done) | S.PS.5 quality portion blocked by 3.4, S.PS.6 unblocked |
+| S.PS | Project Status Sync: periodic service module | IN PROGRESS (S.PS.1-4,6 done) | S.PS.5 quality portion blocked by 3.4 |
 
 ## Phase Diagram
 
@@ -823,7 +823,7 @@ different orgs would collide or lack organizational context.
 - [x] S.PS.1: CLI changes (--llm-command, --llm-arg, embedded prompts via file-embed)
 - [x] S.PS.2: project-status-sync home-manager module
 - [x] S.PS.3: Deprecate ccs-session-end-hook module
-- [ ] S.PS.4: Integration in zoo.nix
+- [x] S.PS.4: Integration in zoo.nix (module imported, outputDir configured, timer + hook active)
 - [ ] S.PS.5: Verification
 - [x] S.PS.6a: Library — output path derivation with OrgMappings, ProjectOverrides, deriveOutputSubpath
 - [x] S.PS.6b: CLI — --org-mapping and --project-override flags
