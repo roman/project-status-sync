@@ -32,7 +32,7 @@
 | 3 | Status & Handoffs: generate outputs | **CODE COMPLETE** (3.4 awaits human quality validation) | 2c |
 | 4 | Retrieval: context injection (optional) | DEFERRED | 3 |
 | 5 | Archival: manage EVENTS.jsonl growth | DEFERRED | 4 |
-| S.PS | Project Status Sync: periodic service module | IN PROGRESS (S.PS.1-3 done) | S.PS.5 quality portion blocked by 3.4 |
+| S.PS | Project Status Sync: periodic service module | IN PROGRESS (S.PS.1-3 done) | S.PS.5 quality portion blocked by 3.4, S.PS.6 unblocked |
 
 ## Phase Diagram
 
@@ -735,8 +735,8 @@ Module options (`programs.project-status-sync`):
 | `intervalMinutes` | int | 5 | Timer frequency |
 | `llmCommand` | str | `"claude"` | LLM binary (e.g. `"airchat"`) |
 | `llmArgs` | listOf str | `["-p"]` | Args for LLM command (e.g. `["claude" "--" "-p"]`) |
-| `orgMappings` | attrsOf str | `{}` | Map git host/org → human name (blocked on CLI) |
-| `projectOverrides` | attrsOf str | `{}` | Override project output paths (blocked on CLI) |
+| `orgMappings` | attrsOf str | `{}` | Map git host/org → human name (see S.PS.6) |
+| `projectOverrides` | attrsOf str | `{}` | Override project output paths (see S.PS.6) |
 
 #### S.PS.3: Deprecate ccs-session-end-hook module
 
@@ -758,6 +758,54 @@ Module options (`programs.project-status-sync`):
 - Lock file prevents concurrent runs
 - Quality of LLM outputs (STATUS.md, handoffs) — blocked by 3.4 cold read
 
+#### S.PS.6: orgMappings and projectOverrides (unblocked — independent of S.PS.4/5)
+
+**Goal**: Control how project keys map to output directory paths. Currently `processSession`
+uses `projectDir = pcOutputDir </> T.unpack pname` where `pname` is just the last path
+component (e.g., `ergo`). This is insufficient for multi-org setups where projects from
+different orgs would collide or lack organizational context.
+
+**orgMappings** — map git host/org prefixes to human-readable names for output path derivation:
+- Input: project key `git.musta.ch/airbnb/ergo`, mapping `git.musta.ch/airbnb → Airbnb`
+- Output path: `{outputDir}/Airbnb/ergo/`
+- Without mapping: `{outputDir}/ergo/` (current behavior, last path component only)
+- Longest prefix match wins when multiple mappings overlap
+
+**projectOverrides** — override the entire output subpath for a specific project key:
+- Input: project key `git.musta.ch/airbnb/legacy`, override `→ Airbnb/archived/legacy`
+- Output path: `{outputDir}/Airbnb/archived/legacy/`
+- Checked before orgMappings — exact match on project key takes priority
+
+**S.PS.6a: Library — output path derivation with mappings**
+
+- New type in `CCS.Project`: `OrgMappings` (newtype over `Map Text Text`)
+- New type in `CCS.Project`: `ProjectOverrides` (newtype over `Map Text Text`)
+- New function `deriveOutputSubpath :: ProjectKey -> OrgMappings -> ProjectOverrides -> FilePath`
+  - Check projectOverrides first (exact match on key)
+  - Then check orgMappings (longest prefix match, replace prefix with mapped name)
+  - Fallback: current `deriveName` behavior (last path component)
+- Tests: prefix matching, override priority, fallback, overlapping prefixes
+- Files: `src/CCS/Project.hs`, `test/`
+
+**S.PS.6b: CLI — new flags**
+
+- Add `--org-mapping KEY=VALUE` repeatable flag to `ccs aggregate`
+  - Parsed as `Text` split on first `=`
+  - Example: `--org-mapping "git.musta.ch/airbnb=Airbnb"`
+- Add `--project-override KEY=PATH` repeatable flag to `ccs aggregate`
+  - Same parsing
+  - Example: `--project-override "git.musta.ch/airbnb/legacy=Airbnb/archived/legacy"`
+- Add `acOrgMappings` and `acProjectOverrides` to `AggregateConfig`
+- Thread through to `ProcessConfig` and into `processSession`
+- Files: `app/Main.hs`, `src/CCS/Process.hs`
+
+**S.PS.6c: Nix module — wire options to CLI flags**
+
+- Update `aggregateCommand` in `project-status-sync/default.nix` to pass
+  `--org-mapping` and `--project-override` flags from module options
+- Remove "blocked on CLI" notes from module options table
+- Files: `nix/modules/home-manager/project-status-sync/default.nix`
+
 ### Gates
 
 - [x] `--llm-command` / `--llm-arg` flags work (`cabal test` — 79 tests pass)
@@ -766,6 +814,9 @@ Module options (`programs.project-status-sync`):
 - [ ] SessionEnd hook registers correctly (composable via `mkAfter`)
 - [ ] Timer activates after `home-manager switch`
 - [ ] End-to-end: session end → signal → timer fires → outputs generated
+- [ ] `--org-mapping` flag correctly maps host/org prefix to output subpath
+- [ ] `--project-override` flag overrides output subpath for exact project key match
+- [ ] Nix module wires `orgMappings` and `projectOverrides` to CLI flags
 
 ### Progress
 
@@ -774,6 +825,7 @@ Module options (`programs.project-status-sync`):
 - [x] S.PS.3: Deprecate ccs-session-end-hook module
 - [ ] S.PS.4: Integration in zoo.nix
 - [ ] S.PS.5: Verification
+- [ ] S.PS.6: orgMappings and projectOverrides (6a: library, 6b: CLI, 6c: Nix wiring)
 
 **Runtime dependency** (2026-03-09): S.PS.2 module passes `--llm-command`
 and `--llm-arg` flags to `ccs aggregate`. Prompts are embedded in the binary — no

@@ -884,8 +884,7 @@ Individual `--extraction-prompt`, `--handoff-prompt`, `--progress-prompt`, and
 
 #### Notes
 
-- `orgMappings` and `projectOverrides` are spec'd but blocked on CLI support
-  (project name derivation in `CCS.Project` does not yet accept mappings)
+- `orgMappings` and `projectOverrides` CLI support tracked in WORKPLAN S.PS.6
 - Service sets PATH to include `${config.home.profileDirectory}/bin` so the LLM
   command (`claude`, `airchat`, etc.) is found
 - API auth is the user's responsibility (claude stores its own credentials)
