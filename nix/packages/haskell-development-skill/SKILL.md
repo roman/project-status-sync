@@ -212,6 +212,10 @@ provides before reaching for upstream packages. Common traps:
 
 ## Style
 
+- **Prefer declarative over imperative**: use `<|>`, `<$>`, `fromMaybe`,
+  and monadic/applicative combinators instead of nested `case`/`if` trees.
+  Flatten decision logic into a pipeline of `Maybe`/`Either` values rather
+  than branching at each step
 - Prefer `let ... in` over `where` for bindings; `where` acceptable for
   local function definitions and small bindings
 - `let` and `in` keywords live on their own lines

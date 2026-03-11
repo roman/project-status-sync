@@ -557,6 +557,44 @@ testProperty "reverse is involution" $
   \(xs :: [Int]) -> reverse (reverse xs) === xs
 ```
 
+## Style: Declarative Over Imperative
+
+```haskell
+-- BAD: nested case trees
+deriveOutput key mappings overrides =
+  case Map.lookup key overrides of
+    Just path -> T.unpack path
+    Nothing -> case longestPrefixMatch key mappings of
+      Just (prefix, replacement) ->
+        let rest = T.drop (T.length prefix) key
+        in T.unpack (replacement <> "/" <> rest)
+      Nothing -> T.unpack (deriveName key)
+
+-- GOOD: <|> chains with fromMaybe fallback
+deriveOutput key mappings overrides =
+  T.unpack $ fromMaybe (deriveName key) $
+    Map.lookup key overrides
+    <|> formatMatch <$> longestPrefixMatch key mappings
+  where
+    formatMatch (prefix, replacement) =
+      let rest = T.drop (T.length prefix) key
+      in replacement <> "/" <> rest
+
+-- BAD: nested if-else
+classify x =
+  if x > 100
+    then "high"
+    else if x > 50
+      then "medium"
+      else "low"
+
+-- GOOD: guards or find-based lookup
+classify x
+  | x > 100   = "high"
+  | x > 50    = "medium"
+  | otherwise  = "low"
+```
+
 ## Style: let-in over where
 
 ```haskell
