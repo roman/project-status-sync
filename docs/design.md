@@ -742,7 +742,7 @@ SessionEnd hook (capture) and a periodic timer service (processing). Asserts
 programs.project-status-sync = {
   enable = lib.mkEnableOption "session capture hook + periodic ccs aggregation";
 
-  # The ccs package (binary + bundled prompts at share/ccs/prompts/)
+  # The ccs package (prompts embedded in binary via file-embed)
   package = lib.mkOption {
     type = lib.types.package;
     default = inputs.self.packages.${system}.ccs;
@@ -874,10 +874,13 @@ ccs aggregate \
   --signal-dir ${signalDir} \
   --quiet-minutes ${quietPeriodMinutes} \
   --output-dir ${outputDir} \
-  --prompts-dir ${package}/share/ccs/prompts \
   --llm-command ${llmCommand} \
   --llm-arg arg1 --llm-arg arg2 ...
 ```
+
+Prompts are embedded in the binary via `file-embed` — no `--prompts-dir` needed.
+Individual `--extraction-prompt`, `--handoff-prompt`, `--progress-prompt`, and
+`--synthesis-prompt` flags are available as optional overrides for development iteration.
 
 #### Notes
 

@@ -32,7 +32,7 @@
 | 3 | Status & Handoffs: generate outputs | **CODE COMPLETE** (3.4 awaits human quality validation) | 2c |
 | 4 | Retrieval: context injection (optional) | DEFERRED | 3 |
 | 5 | Archival: manage EVENTS.jsonl growth | DEFERRED | 4 |
-| S.PS | Project Status Sync: periodic service module | IN PROGRESS (S.PS.1-2 done) | S.PS.5 quality portion blocked by 3.4 |
+| S.PS | Project Status Sync: periodic service module | IN PROGRESS (S.PS.1-3 done) | S.PS.5 quality portion blocked by 3.4 |
 
 ## Phase Diagram
 
@@ -770,7 +770,7 @@ Module options (`programs.project-status-sync`):
 ### Progress
 
 - [x] S.PS.1: CLI changes (--llm-command, --llm-arg, embedded prompts via file-embed)
-- [X] S.PS.2: project-status-sync home-manager module
+- [x] S.PS.2: project-status-sync home-manager module
 - [x] S.PS.3: Deprecate ccs-session-end-hook module
 - [ ] S.PS.4: Integration in zoo.nix
 - [ ] S.PS.5: Verification
@@ -784,6 +784,11 @@ and `--llm-arg` flags to `ccs aggregate`. Prompts are embedded in the binary —
 is subjectively useful — it says nothing about the Nix module that wraps the CLI, the
 deprecation of the old module, or the zoo.nix integration. S.PS.2-4 are pure infrastructure
 and unblocked from 3.4. Only S.PS.5's quality judgment depends on 3.4.
+
+**Sandbox constraint** (2026-03-11): S.PS.4 modifies `~/Projects/self/zoo.nix` and S.PS.5
+requires `home-manager switch` + systemd/launchd verification. Neither is doable from
+the bubblewrap sandbox (only `/home/roman/project` is writable). These must be done in an
+interactive session with full filesystem access.
 
 See:
 - `notes/handoffs/2026-03-09-pm-blocker-reconciliation.md`
