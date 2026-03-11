@@ -118,10 +118,6 @@ in
         assertion = config.programs.claude-code.enable;
         message = "programs.project-status-sync requires programs.claude-code.enable = true";
       }
-      {
-        assertion = !config.programs.claude-code.plugins.conversation-sync.enable;
-        message = "programs.project-status-sync replaces programs.claude-code.plugins.conversation-sync — disable the old module first";
-      }
     ];
 
     programs.claude-code.settings.hooks.SessionEnd = lib.mkAfter [
