@@ -13,7 +13,7 @@ common warnings
     -Wincomplete-uni-patterns
     -Wpartial-fields
     -Wredundant-constraints
-    -Werror=missing-fields
+    -Werror
 
 common extensions
   default-extensions:

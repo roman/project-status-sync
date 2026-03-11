@@ -351,7 +351,7 @@ generateStatus config signal pname eventsFile projectDir = do
         writeFileBinary statusPath (T.encodeUtf8 out)
         logInfo $ "Wrote STATUS.md for project " <> display pnameText
 
-withLLMResult :: HasLogFunc env => (Utf8Builder -> RIO env ()) -> Maybe Text -> Utf8Builder -> (Text -> RIO env ()) -> RIO env ()
+withLLMResult :: (Utf8Builder -> RIO env ()) -> Maybe Text -> Utf8Builder -> (Text -> RIO env ()) -> RIO env ()
 withLLMResult logLevel mOut failMsg onSuccess =
   case mOut of
     Nothing -> logLevel failMsg
