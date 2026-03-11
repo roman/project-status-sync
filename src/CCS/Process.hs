@@ -92,29 +92,20 @@ parseExtractionOutput :: Text -> [SessionEvent]
 parseExtractionOutput =
   mapMaybe parseLine . T.lines
  where
-  parseLine line =
+  parseLine line = do
+    rest <- T.stripPrefix "[" (T.strip line)
     let
-      trimmed = T.strip line
-    in
-      case T.uncons trimmed of
-        Just ('[', rest) ->
-          case DT.breakOn "]" rest of
-            (tag, afterBracket)
-              | not (T.null afterBracket) ->
-                  let
-                    text = T.strip (T.drop 1 afterBracket)
-                  in
-                    if T.null tag || T.null text
-                      then Nothing
-                      else
-                        Just
-                          SessionEvent
-                            { eventTag = EventTag tag
-                            , eventText = text
-                            , eventSource = EventSource "conversation"
-                            }
-            _ -> Nothing
-        _ -> Nothing
+      (tag, afterBracket) = DT.breakOn "]" rest
+    afterClose <- T.stripPrefix "]" afterBracket
+    let
+      text = T.strip afterClose
+    guard (not (T.null tag) && not (T.null text))
+    pure
+      SessionEvent
+        { eventTag = EventTag tag
+        , eventText = text
+        , eventSource = EventSource "conversation"
+        }
 
 formatEventsInput :: [SessionEvent] -> Text
 formatEventsInput = T.unlines . map formatEvent
@@ -129,14 +120,12 @@ parseTopicSlug :: Text -> Maybe Text
 parseTopicSlug =
   listToMaybe . mapMaybe extractTopic . T.lines
  where
-  extractTopic line =
-    case T.stripPrefix "TOPIC:" (T.strip line) of
-      Just rest ->
-        let
-          slug = T.strip rest
-        in
-          if T.null slug then Nothing else Just slug
-      Nothing -> Nothing
+  extractTopic line = do
+    rest <- T.stripPrefix "TOPIC:" (T.strip line)
+    let
+      slug = T.strip rest
+    guard (not (T.null slug))
+    pure slug
 
 runLLMPrompt
   :: HasLogFunc env
@@ -188,39 +177,36 @@ processSession config@ProcessConfig{..} signal = do
       logInfo $ "Running extraction for session " <> display sid
       mOut <- runLLMPrompt config pcExtractionPrompt filtered
 
-      case mOut of
-        Nothing ->
-          logError $ "Extraction failed for session " <> display sid
-        Just out -> do
-          let
-            events = parseExtractionOutput out
-          logInfo $ "Extracted " <> display (length events) <> " event(s) for session " <> display sid
+      withLLMResult logError mOut ("Extraction failed for session " <> display sid) $ \out -> do
+        let
+          events = parseExtractionOutput out
+        logInfo $ "Extracted " <> display (length events) <> " event(s) for session " <> display sid
 
-          project <- identifyProject (asProjectPath signal)
-          now <- liftIO getCurrentTime
+        project <- identifyProject (asProjectPath signal)
+        now <- liftIO getCurrentTime
 
-          let
-            today = utctDay now
-            mkEntry event =
-              EventLogEntry
-                { eleDate = today
-                , eleSessionId = asSessionId signal
-                , eleProjectKey = projectKey project
-                , eleProjectName = projectName project
-                , eleEvent = event
-                }
-            projectDir = pcOutputDir </> deriveOutputSubpath (projectKey project) pcOrgMappings pcProjectOverrides
-            eventsFile = projectDir </> "EVENTS.jsonl"
+        let
+          today = utctDay now
+          mkEntry event =
+            EventLogEntry
+              { eleDate = today
+              , eleSessionId = asSessionId signal
+              , eleProjectKey = projectKey project
+              , eleProjectName = projectName project
+              , eleEvent = event
+              }
+          projectDir = pcOutputDir </> deriveOutputSubpath (projectKey project) pcOrgMappings pcProjectOverrides
+          eventsFile = projectDir </> "EVENTS.jsonl"
 
-          createDirectoryIfMissing True projectDir
+        createDirectoryIfMissing True projectDir
 
-          let
-            entries = map mkEntry events
-          mapM_ (appendJsonLine eventsFile) entries
+        let
+          entries = map mkEntry events
+        mapM_ (appendJsonLine eventsFile) entries
 
-          generateHandoff config signal events today projectDir
-          generateProgressEntry config signal events now projectDir
-          generateStatus config signal (projectName project) eventsFile projectDir
+        generateHandoff config signal events today projectDir
+        generateProgressEntry config signal events now projectDir
+        generateStatus config signal (projectName project) eventsFile projectDir
 
 generateHandoff
   :: HasLogFunc env
@@ -233,45 +219,40 @@ generateHandoff
 generateHandoff config signal events today projectDir = do
   let
     SessionId sid = asSessionId signal
-  if null events
-    then logDebug $ "No events for handoff, skipping session " <> display sid
-    else do
+  withEvents events ("handoff", sid) $ do
+    let
+      sessionPrefix = T.take 8 sid
+      metadata =
+        "Project session metadata:\n"
+          <> "Date: "
+          <> T.pack (show today)
+          <> "\n"
+          <> "Session: "
+          <> sid
+          <> "\n\n"
+      eventsText = formatEventsInput events
+      input = metadata <> eventsText
+
+    logInfo $ "Running handoff generation for session " <> display sid
+    mOut <- runLLMPrompt config (pcHandoffPrompt config) input
+    withLLMResult logWarn mOut ("Handoff generation failed for session " <> display sid) $ \out -> do
       let
-        sessionPrefix = T.take 8 sid
-        metadata =
-          "Project session metadata:\n"
-            <> "Date: "
-            <> T.pack (show today)
-            <> "\n"
-            <> "Session: "
-            <> sid
-            <> "\n\n"
-        eventsText = formatEventsInput events
-        input = metadata <> eventsText
+        topic = fromMaybe "session-work" (parseTopicSlug out)
+        handoffDir = projectDir </> "handoffs"
+        filename =
+          T.unpack
+            $ T.pack (show today)
+            <> "-"
+            <> sessionPrefix
+            <> "-"
+            <> topic
+            <> ".md"
+        handoffPath = handoffDir </> filename
+        content = stripTopicLine out
 
-      logInfo $ "Running handoff generation for session " <> display sid
-      mOut <- runLLMPrompt config (pcHandoffPrompt config) input
-      case mOut of
-        Nothing ->
-          logWarn $ "Handoff generation failed for session " <> display sid
-        Just out -> do
-          let
-            topic = fromMaybe "session-work" (parseTopicSlug out)
-            handoffDir = projectDir </> "handoffs"
-            filename =
-              T.unpack
-                $ T.pack (show today)
-                <> "-"
-                <> sessionPrefix
-                <> "-"
-                <> topic
-                <> ".md"
-            handoffPath = handoffDir </> filename
-            content = stripTopicLine out
-
-          createDirectoryIfMissing True handoffDir
-          writeFileBinary handoffPath (T.encodeUtf8 content)
-          logInfo $ "Wrote handoff: " <> fromString filename
+      createDirectoryIfMissing True handoffDir
+      writeFileBinary handoffPath (T.encodeUtf8 content)
+      logInfo $ "Wrote handoff: " <> fromString filename
 
 generateProgressEntry
   :: HasLogFunc env
@@ -284,37 +265,32 @@ generateProgressEntry
 generateProgressEntry config signal events now projectDir = do
   let
     SessionId sid = asSessionId signal
-  if null events
-    then logDebug $ "No events for progress, skipping session " <> display sid
-    else do
-      let
-        sessionPrefix = T.take 8 sid
-        metadata =
-          "Session metadata:\n"
-            <> "Date: "
-            <> T.pack (show (utctDay now))
-            <> "\n"
-            <> "Session prefix: "
-            <> sessionPrefix
-            <> "\n\n"
-        eventsText = formatEventsInput events
-        input = metadata <> eventsText
+  withEvents events ("progress", sid) $ do
+    let
+      sessionPrefix = T.take 8 sid
+      metadata =
+        "Session metadata:\n"
+          <> "Date: "
+          <> T.pack (show (utctDay now))
+          <> "\n"
+          <> "Session prefix: "
+          <> sessionPrefix
+          <> "\n\n"
+      eventsText = formatEventsInput events
+      input = metadata <> eventsText
 
-      logInfo $ "Running progress entry for session " <> display sid
-      mOut <- runLLMPrompt config (pcProgressPrompt config) input
-      case mOut of
-        Nothing ->
-          logWarn $ "Progress entry generation failed for session " <> display sid
-        Just out -> do
-          let
-            entry = T.strip out
-            progressFile = projectDir </> "progress.log"
-          unless (T.null entry) $ do
-            liftIO
-              $ withBinaryFile progressFile AppendMode
-              $ \h ->
-                hPutBuilder h (getUtf8Builder (display entry <> "\n"))
-            logInfo $ "Appended progress entry for session " <> display sid
+    logInfo $ "Running progress entry for session " <> display sid
+    mOut <- runLLMPrompt config (pcProgressPrompt config) input
+    withLLMResult logWarn mOut ("Progress entry generation failed for session " <> display sid) $ \out -> do
+      let
+        entry = T.strip out
+        progressFile = projectDir </> "progress.log"
+      unless (T.null entry) $ do
+        liftIO
+          $ withBinaryFile progressFile AppendMode
+          $ \h ->
+            hPutBuilder h (getUtf8Builder (display entry <> "\n"))
+        logInfo $ "Appended progress entry for session " <> display sid
 
 generateStatus
   :: HasLogFunc env
@@ -369,14 +345,22 @@ generateStatus config signal pname eventsFile projectDir = do
         <> display inputLen
         <> " chars input)"
       mOut <- runLLMPrompt config (pcSynthesisPrompt config) input
-      case mOut of
-        Nothing ->
-          logWarn $ "Status synthesis failed for session " <> display sid
-        Just out -> do
-          let
-            statusPath = projectDir </> "STATUS.md"
-          writeFileBinary statusPath (T.encodeUtf8 out)
-          logInfo $ "Wrote STATUS.md for project " <> display pnameText
+      withLLMResult logWarn mOut ("Status synthesis failed for session " <> display sid) $ \out -> do
+        let
+          statusPath = projectDir </> "STATUS.md"
+        writeFileBinary statusPath (T.encodeUtf8 out)
+        logInfo $ "Wrote STATUS.md for project " <> display pnameText
+
+withLLMResult :: HasLogFunc env => (Utf8Builder -> RIO env ()) -> Maybe Text -> Utf8Builder -> (Text -> RIO env ()) -> RIO env ()
+withLLMResult logLevel mOut failMsg onSuccess =
+  case mOut of
+    Nothing -> logLevel failMsg
+    Just out -> onSuccess out
+
+withEvents :: HasLogFunc env => [SessionEvent] -> (Text, Text) -> RIO env () -> RIO env ()
+withEvents events (label, sid) action
+  | null events = logDebug $ "No events for " <> display label <> ", skipping session " <> display sid
+  | otherwise = action
 
 stripTopicLine :: Text -> Text
 stripTopicLine =

@@ -15,9 +15,12 @@ import RIO
 import RIO.Map qualified as Map
 import RIO.Text qualified as T
 
+import Control.Monad.Trans.Maybe (MaybeT (..), runMaybeT)
+
 -- Data.Text: RIO.Text does not re-export breakOn/breakOnEnd
 import Data.Text qualified as DT
 import RIO.FilePath (makeRelative, takeFileName)
+import RIO.List (sortOn)
 import System.Process.Typed (proc, readProcess)
 
 newtype ProjectKey = ProjectKey Text
@@ -41,15 +44,11 @@ identifyProject
   => FilePath
   -> m Project
 identifyProject cwd = do
-  mGitRoot <- gitCommand cwd ["rev-parse", "--show-toplevel"]
-  case mGitRoot of
-    Nothing -> pure $ directoryFallback cwd
-    Just gitRoot -> do
-      mRemote <- gitCommand cwd ["remote", "get-url", "origin"]
-      case mRemote of
-        Nothing -> pure $ directoryFallback cwd
-        Just remoteUrl ->
-          pure $ gitProject (T.unpack gitRoot) remoteUrl cwd
+  mProject <- runMaybeT $ do
+    gitRoot <- MaybeT $ gitCommand cwd ["rev-parse", "--show-toplevel"]
+    remoteUrl <- MaybeT $ gitCommand cwd ["remote", "get-url", "origin"]
+    pure $ gitProject (T.unpack gitRoot) remoteUrl cwd
+  pure $ fromMaybe (directoryFallback cwd) mProject
 
 gitProject :: FilePath -> Text -> FilePath -> Project
 gitProject gitRoot remoteUrl cwd =
@@ -137,31 +136,25 @@ newtype ProjectOverrides = ProjectOverrides (Map Text Text)
 
 deriveOutputSubpath :: ProjectKey -> OrgMappings -> ProjectOverrides -> FilePath
 deriveOutputSubpath (ProjectKey key) (OrgMappings mappings) (ProjectOverrides overrides) =
-  case Map.lookup key overrides of
-    Just path -> T.unpack path
-    Nothing -> case longestPrefixMatch key mappings of
-      Just (prefix, replacement) ->
-        let
-          rest = T.drop (T.length prefix) key
-          trimmed = fromMaybe rest (T.stripPrefix "/" rest)
-        in
-          if T.null trimmed
-            then T.unpack (deriveName key)
-            else T.unpack (replacement <> "/" <> trimmed)
-      Nothing -> T.unpack (deriveName key)
+  T.unpack
+    $ fromMaybe (deriveName key)
+    $ Map.lookup key overrides
+    <|> (applyOrgMapping key =<< longestPrefixMatch key mappings)
+
+applyOrgMapping :: Text -> (Text, Text) -> Maybe Text
+applyOrgMapping key (prefix, replacement) =
+  let
+    rest = T.drop (T.length prefix) key
+    trimmed = fromMaybe rest (T.stripPrefix "/" rest)
+  in
+    if T.null trimmed then Nothing else Just (replacement <> "/" <> trimmed)
 
 longestPrefixMatch :: Text -> Map Text Text -> Maybe (Text, Text)
 longestPrefixMatch key mappings =
-  let
-    candidates = filter (\(prefix, _) -> prefixMatches prefix key) (Map.toList mappings)
-  in
-    case candidates of
-      [] -> Nothing
-      (first : rest) ->
-        let
-          best = foldl' (\a b -> if T.length (fst a) >= T.length (fst b) then a else b) first rest
-        in
-          Just best
+  listToMaybe
+    . sortOn (Down . T.length . fst)
+    . filter (\(prefix, _) -> prefixMatches prefix key)
+    $ Map.toList mappings
 
 prefixMatches :: Text -> Text -> Bool
 prefixMatches prefix key =

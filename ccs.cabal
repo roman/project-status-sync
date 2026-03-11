@@ -50,6 +50,7 @@ library
     , directory
     , filepath
     , rio
+    , transformers
     , typed-process
     , text
     , time
