@@ -27,7 +27,15 @@ let
   ++ lib.concatMap (a: [
     "--llm-arg"
     a
-  ]) cfg.llmArgs;
+  ]) cfg.llmArgs
+  ++ lib.concatMap (a: [
+    "--org-mapping"
+    a
+  ]) (lib.mapAttrsToList (k: v: "${k}=${v}") cfg.orgMappings)
+  ++ lib.concatMap (a: [
+    "--project-override"
+    a
+  ]) (lib.mapAttrsToList (k: v: "${k}=${v}") cfg.projectOverrides);
 
   aggregateScript = pkgs.writeShellScript "project-status-sync" ''
     exec ${lib.escapeShellArgs aggregateArgs}
@@ -91,7 +99,7 @@ in
     orgMappings = lib.mkOption {
       type = lib.types.attrsOf lib.types.str;
       default = { };
-      description = "Map git host/org to human-readable name (blocked on CLI support).";
+      description = "Map git host/org prefix to human-readable name for output path derivation.";
       example = {
         "github.com/anthropics" = "Anthropic";
       };
@@ -100,7 +108,7 @@ in
     projectOverrides = lib.mkOption {
       type = lib.types.attrsOf lib.types.str;
       default = { };
-      description = "Override project output paths (blocked on CLI support).";
+      description = "Override output subpath for specific project keys.";
     };
   };
 

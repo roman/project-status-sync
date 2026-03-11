@@ -816,7 +816,7 @@ different orgs would collide or lack organizational context.
 - [ ] End-to-end: session end → signal → timer fires → outputs generated
 - [ ] `--org-mapping` flag correctly maps host/org prefix to output subpath
 - [ ] `--project-override` flag overrides output subpath for exact project key match
-- [ ] Nix module wires `orgMappings` and `projectOverrides` to CLI flags
+- [x] Nix module wires `orgMappings` and `projectOverrides` to CLI flags
 
 ### Progress
 
@@ -827,7 +827,7 @@ different orgs would collide or lack organizational context.
 - [ ] S.PS.5: Verification
 - [x] S.PS.6a: Library — output path derivation with OrgMappings, ProjectOverrides, deriveOutputSubpath
 - [x] S.PS.6b: CLI — --org-mapping and --project-override flags
-- [ ] S.PS.6c: Nix module — wire orgMappings/projectOverrides options to CLI flags
+- [x] S.PS.6c: Nix module — wire orgMappings/projectOverrides options to CLI flags
 
 **Runtime dependency** (2026-03-09): S.PS.2 module passes `--llm-command`
 and `--llm-arg` flags to `ccs aggregate`. Prompts are embedded in the binary — no
@@ -850,3 +850,4 @@ See:
 - `notes/handoffs/2026-03-09-sps1-cli-flags.md`
 - `notes/handoffs/2026-03-11-sps6a-output-path-derivation.md`
 - `notes/handoffs/2026-03-11-sps6b-cli-mapping-flags.md`
+- `notes/handoffs/2026-03-11-sps6c-nix-module-wiring.md`
