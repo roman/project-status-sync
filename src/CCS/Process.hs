@@ -2,6 +2,7 @@ module CCS.Process (
   EventLogEntry (..),
   ProcessConfig (..),
   formatEventsInput,
+  generateStatusForProject,
   parseExtractionOutput,
   parseTopicSlug,
   processSession,
@@ -163,21 +164,24 @@ processSession
   :: HasLogFunc env
   => ProcessConfig
   -> AvailabilitySignal
-  -> RIO env ()
+  -> RIO env (Maybe Project)
 processSession config@ProcessConfig{..} signal = do
   let
     SessionId sid = asSessionId signal
 
   mProject <- identifyProject (asProjectPath signal)
   case mProject of
-    Nothing ->
+    Nothing -> do
       logInfo $ "Skipping non-git session " <> display sid
+      pure Nothing
     Just project -> do
       logInfo $ "Filtering transcript: " <> fromString (asTranscriptPath signal)
       filtered <- filterTranscriptFile (asTranscriptPath signal)
 
       if T.null filtered
-        then logWarn $ "Empty transcript after filtering for session " <> display sid
+        then do
+          logWarn $ "Empty transcript after filtering for session " <> display sid
+          pure (Just project)
         else do
           logInfo $ "Running extraction for session " <> display sid
           mOut <- runLLMPrompt config pcExtractionPrompt filtered
@@ -210,7 +214,8 @@ processSession config@ProcessConfig{..} signal = do
 
             generateHandoff config signal events today projectDir
             generateProgressEntry config signal events now projectDir
-            generateStatus config signal (projectName project) eventsFile projectDir
+
+          pure (Just project)
 
 generateHandoff
   :: HasLogFunc env
@@ -313,25 +318,23 @@ generateProgressEntry config signal events now projectDir = do
             hPutBuilder h (getUtf8Builder (display entry <> "\n"))
         logInfo $ "Appended progress entry for session " <> display sid
 
-generateStatus
+generateStatusForProject
   :: HasLogFunc env
   => ProcessConfig
-  -> AvailabilitySignal
-  -> ProjectName
-  -> FilePath
-  -> FilePath
+  -> Project
   -> RIO env ()
-generateStatus config signal pname eventsFile projectDir = do
+generateStatusForProject config@ProcessConfig{..} project = do
   let
-    SessionId sid = asSessionId signal
-    ProjectName pnameText = pname
+    ProjectName pnameText = projectName project
+    projectDir = pcOutputDir </> deriveOutputSubpath (projectKey project) pcOrgMappings pcProjectOverrides
+    eventsFile = projectDir </> "EVENTS.jsonl"
 
   eventsBytes <- readFileBinary eventsFile
   let
     eventsContent = T.decodeUtf8With T.lenientDecode eventsBytes
 
   if T.null eventsContent
-    then logDebug $ "No events for synthesis, skipping session " <> display sid
+    then logDebug $ "No events for synthesis, skipping project " <> display pnameText
     else do
       let
         handoffDir = projectDir </> "handoffs"
@@ -350,8 +353,6 @@ generateStatus config signal pname eventsFile projectDir = do
         input =
           "Project: "
             <> pnameText
-            <> "\nSession: "
-            <> sid
             <> "\n\n"
             <> handoffList
             <> "\n"
@@ -360,13 +361,13 @@ generateStatus config signal pname eventsFile projectDir = do
       let
         inputLen = T.length input
       logInfo
-        $ "Running status synthesis for session "
-        <> display sid
+        $ "Running status synthesis for project "
+        <> display pnameText
         <> " ("
         <> display inputLen
         <> " chars input)"
-      mOut <- runLLMPrompt config (pcSynthesisPrompt config) input
-      withLLMResult logWarn mOut ("Status synthesis failed for session " <> display sid) $ \out -> do
+      mOut <- runLLMPrompt config pcSynthesisPrompt input
+      withLLMResult logWarn mOut ("Status synthesis failed for project " <> display pnameText) $ \out -> do
         let
           statusPath = projectDir </> "STATUS.md"
         writeFileBinary statusPath (T.encodeUtf8 out)

@@ -468,7 +468,7 @@ aggregateTests =
         [ testCase "returns NoSignalsFound for empty dir" $ do
             tmpDir <- getTemporaryDirectory
             (dir, cleanup) <- createTempSignalDir tmpDir
-            result <- runSimpleApp $ runAggregation dir twentyMinutes (\_ -> pure ())
+            result <- runSimpleApp $ runAggregation dir twentyMinutes (\_ -> pure (Nothing :: Maybe ()))
             cleanup
             result @?= NoSignalsFound
         ]

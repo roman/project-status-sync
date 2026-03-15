@@ -36,8 +36,8 @@ data AvailabilitySignal = AvailabilitySignal
   }
   deriving stock (Eq, Show)
 
-data AggregateResult
-  = AggregatedSessions !Int
+data AggregateResult a
+  = AggregatedSessions ![a]
   | QuietPeriodNotElapsed
   | NoSignalsFound
   | LockBusy
@@ -109,11 +109,11 @@ consumeSignal :: MonadIO m => AvailabilitySignal -> m ()
 consumeSignal signal = liftIO $ removeFile (asSignalPath signal)
 
 runAggregation
-  :: HasLogFunc env
+  :: (HasLogFunc env, Show a)
   => FilePath
   -> NominalDiffTime
-  -> (AvailabilitySignal -> RIO env ())
-  -> RIO env AggregateResult
+  -> (AvailabilitySignal -> RIO env a)
+  -> RIO env (AggregateResult a)
 runAggregation signalDir quietMinutes processOne = do
   signals <- discoverSignals signalDir
   now <- liftIO getCurrentTime
@@ -141,14 +141,15 @@ runAggregation signalDir quietMinutes processOne = do
       Nothing -> do
         logWarn "Lock busy, another aggregation is running"
         pure LockBusy
-      Just () ->
-        pure (AggregatedSessions (length signals))
+      Just results ->
+        pure (AggregatedSessions results)
 
   processAll signals = do
     logInfo $ "Processing " <> display (length signals) <> " signal(s)"
-    forM_ signals $ \signal -> do
+    forM signals $ \signal -> do
       let
         SessionId sid = asSessionId signal
       logInfo $ "Processing session: " <> display sid
-      processOne signal
+      result <- processOne signal
       consumeSignal signal
+      pure result

@@ -35,7 +35,7 @@
 | S.PS | Project Status Sync: periodic service module | IN PROGRESS (S.PS.1-4,6 done) | S.PS.5 quality portion blocked by 3.4 |
 | 6 | Production audit fixes | IN PROGRESS (6.1 done) | — |
 | 6.1 | Skip non-git projects | **DONE** | — |
-| 6.2 | Batch-aware synthesis | NOT STARTED | — |
+| 6.2 | Batch-aware synthesis | **DONE** | — |
 | 6.3 | Handoff dedup via prior context | NOT STARTED | — |
 | 6.4 | Incremental synthesis with watermark cursor | NOT STARTED | — |
 | 6.5 | Service runtime hardening | NOT STARTED | — |
@@ -925,11 +925,12 @@ Full design: `notes/plans/2026-03-14-phase-6-production-audit-fixes.md`
 ### Progress
 
 - [x] 6.1: Skip non-git projects
-- [ ] 6.2: Batch-aware synthesis
+- [x] 6.2: Batch-aware synthesis
 - [x] 6.3: Handoff dedup via prior context
 - [ ] 6.4: Incremental synthesis with watermark cursor
 - [ ] 6.5: Service runtime hardening
 
 See:
 - `notes/handoffs/2026-03-15-phase-6.1-skip-non-git.md`
+- `notes/handoffs/2026-03-15-phase-6.2-batch-aware-synthesis.md`
 - `notes/handoffs/2026-03-15-phase-6.3-handoff-dedup.md`
