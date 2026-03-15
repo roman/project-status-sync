@@ -33,6 +33,12 @@
 | 4 | Retrieval: context injection (optional) | DEFERRED | 3 |
 | 5 | Archival: manage EVENTS.jsonl growth | DEFERRED | 4 |
 | S.PS | Project Status Sync: periodic service module | IN PROGRESS (S.PS.1-4,6 done) | S.PS.5 quality portion blocked by 3.4 |
+| 6 | Production audit fixes | NOT STARTED | — |
+| 6.1 | Skip non-git projects | NOT STARTED | — |
+| 6.2 | Batch-aware synthesis | NOT STARTED | — |
+| 6.3 | Handoff dedup via prior context | NOT STARTED | — |
+| 6.4 | Incremental synthesis with watermark cursor | NOT STARTED | — |
+| 6.5 | Service runtime hardening | NOT STARTED | — |
 
 ## Phase Diagram
 
@@ -851,3 +857,75 @@ See:
 - `notes/handoffs/2026-03-11-sps6a-output-path-derivation.md`
 - `notes/handoffs/2026-03-11-sps6b-cli-mapping-flags.md`
 - `notes/handoffs/2026-03-11-sps6c-nix-module-wiring.md`
+
+---
+
+## Phase 6: Production Audit Fixes
+
+**Goal**: Fix token waste, duplicate output, and runtime issues discovered during real-world
+operation of the project-status-sync service on reiner.
+
+**Audit findings** (2026-03-14):
+- 222 events from 53 sessions in `roman` project, mostly duplicates (~5 unique observations)
+- 53 handoff files, 16 near-identical "project-status-sync-integration.md" copies
+- Status synthesis ran 53× per batch (64K chars input each), only last run matters
+- Service SIGTERMed after 11 min, 257 signals still queued
+- All `~/` sessions lumped into "roman" project (non-git fallback)
+
+Full design: `notes/plans/2026-03-14-phase-6-production-audit-fixes.md`
+
+### 6.1: Skip non-git projects
+
+- `identifyProject` returns `Maybe Project`; delete `directoryFallback`
+- `processSession` pattern-matches `Nothing` → log + skip
+- Signal consumed regardless
+- Files: `src/CCS/Project.hs`, `src/CCS/Process.hs`, `test/`
+
+### 6.2: Batch-aware synthesis (depends on 6.1)
+
+- `processSession` returns `Maybe Project`, removes `generateStatus` call
+- `runAggregation` callback returns `Maybe Project`, collects touched projects
+- `AggregateResult` carries `[Project]`; caller deduplicates and runs synthesis once per project
+- New `generateStatusForProject` drops `AvailabilitySignal` parameter
+- Files: `src/CCS/Process.hs`, `src/CCS/Aggregate.hs`, `app/Main.hs`, `test/`
+
+### 6.3: Handoff dedup via prior filenames
+
+- `generateHandoff` reads handoff dir listing, prepends filenames to prompt input
+- Prompt updated: "if previous handoffs cover same topic, focus on what's new"
+- ~10 lines Haskell, ~40 tokens overhead, zero new LLM calls
+- Files: `src/CCS/Process.hs`, `prompts/handoff-generation.md`
+
+### 6.4: Incremental synthesis with watermark cursor (depends on 6.2)
+
+- **6.4a**: `formatEventsCompact` — group by session, date headers, drop JSON envelope (~60-70% smaller)
+- **6.4b**: `.last-synthesized` cursor file (line count integer); missing/corrupt → full resync
+- **6.4c**: Incremental `generateStatus` — cursor > 0 feeds `previous STATUS.md + new events`
+- **6.4d**: Updated synthesis prompt with optional "Previous STATUS.md" section
+- **6.4e**: `--full-resync` CLI flag (forces cursor to 0, writes new cursor after)
+- Files: `src/CCS/Process.hs`, `prompts/status-synthesis.md`, `app/Main.hs`, `test/`
+
+### 6.5: Service runtime hardening
+
+- `TimeoutStartSec = "30min"` in Nix module (1 line)
+- `--max-signals N` flag (default 20) — `take N` in `runAggregation`
+- `maxSignals` option in Nix module wired to CLI flag
+- Files: `nix/modules/home-manager/project-status-sync/default.nix`, `src/CCS/Aggregate.hs`, `app/Main.hs`
+
+### Gates
+
+- [ ] Non-git sessions are skipped and signals consumed without processing
+- [ ] Synthesis runs once per project per `ccs aggregate` invocation
+- [ ] Handoff prompt receives prior handoff context; duplicate handoffs suppressed
+- [ ] Synthesis uses watermark cursor; only new events fed to prompt
+- [ ] Synthesis input uses compact tagged-line format (not raw JSONL)
+- [ ] Service completes full signal backlog without SIGTERM
+- [ ] `--full-resync` flag regenerates STATUS.md from full EVENTS.jsonl
+
+### Progress
+
+- [ ] 6.1: Skip non-git projects
+- [ ] 6.2: Batch-aware synthesis
+- [ ] 6.3: Handoff dedup via prior context
+- [ ] 6.4: Incremental synthesis with watermark cursor
+- [ ] 6.5: Service runtime hardening

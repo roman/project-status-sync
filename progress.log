@@ -74,3 +74,4 @@
 2026-03-11 13:30 [28cc7c70] — S.PS.6b: add --org-mapping and --project-override CLI flags, wire deriveOutputSubpath into processSession (90 tests pass)
 2026-03-11 14:30 [e3101460] — S.PS.6c: wire orgMappings/projectOverrides options to CLI flags in Nix module
 2026-03-10 22:20 [8396dde0] — S.PS.4: zoo.nix integration complete — removed stale assertion, updated flake lock, verified timer + hook active after nixos-rebuild switch
+2026-03-14 18:30 [8781be5f] — Phase 6: production audit — identified 5 issues (redundant synthesis, non-git noise, handoff duplication, unbounded events input, service timeout), wrote design plan
