@@ -11,6 +11,7 @@ Create a concise handoff that captures what happened in this session. The handof
 You receive:
 1. Project name and session metadata (date, session ID)
 2. This session's events (filtered from EVENTS.jsonl by session ID)
+3. (Optional) List of previous handoff filenames for this project
 
 Each event has: tag (`decision`/`question`/`next`/`blocker`/`resolved`/`context`/`initiative`), text
 
@@ -72,6 +73,7 @@ This will be used for the handoff filename.
 - Be actionable: next steps should be clear enough to start immediately
 - Be concise: target 50-150 words total (excluding headers)
 - Derive topic from the primary work accomplished
+- Avoid redundancy: if previous handoffs already cover the same topic, focus only on what THIS session added that is genuinely new. If the session's events are entirely covered by existing handoffs, output only the TOPIC line with no markdown body.
 
 ## Example
 

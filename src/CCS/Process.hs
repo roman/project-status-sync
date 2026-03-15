@@ -226,6 +226,21 @@ generateHandoff config signal events today projectDir = do
   withEvents events ("handoff", sid) $ do
     let
       sessionPrefix = T.take 8 sid
+      handoffDir = projectDir </> "handoffs"
+
+    handoffExists <- doesDirectoryExist handoffDir
+    handoffFiles <-
+      if handoffExists
+        then sort <$> listDirectory handoffDir
+        else pure []
+
+    let
+      priorContext = case handoffFiles of
+        [] -> ""
+        fs ->
+          "Previous handoffs in this project:\n"
+            <> T.unlines (map (\f -> "- " <> T.pack f) fs)
+            <> "\n"
       metadata =
         "Project session metadata:\n"
           <> "Date: "
@@ -234,6 +249,7 @@ generateHandoff config signal events today projectDir = do
           <> "Session: "
           <> sid
           <> "\n\n"
+          <> priorContext
       eventsText = formatEventsInput events
       input = metadata <> eventsText
 
@@ -242,7 +258,6 @@ generateHandoff config signal events today projectDir = do
     withLLMResult logWarn mOut ("Handoff generation failed for session " <> display sid) $ \out -> do
       let
         topic = fromMaybe "session-work" (parseTopicSlug out)
-        handoffDir = projectDir </> "handoffs"
         filename =
           T.unpack
             $ T.pack (show today)
@@ -254,9 +269,10 @@ generateHandoff config signal events today projectDir = do
         handoffPath = handoffDir </> filename
         content = stripTopicLine out
 
-      createDirectoryIfMissing True handoffDir
-      writeFileBinary handoffPath (T.encodeUtf8 content)
-      logInfo $ "Wrote handoff: " <> fromString filename
+      unless (T.null (T.strip content)) $ do
+        createDirectoryIfMissing True handoffDir
+        writeFileBinary handoffPath (T.encodeUtf8 content)
+        logInfo $ "Wrote handoff: " <> fromString filename
 
 generateProgressEntry
   :: HasLogFunc env
