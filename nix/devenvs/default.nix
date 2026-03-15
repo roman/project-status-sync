@@ -7,6 +7,7 @@ let
     hp.aeson-qq
     hp.bytestring
     hp.directory
+    hp.file-embed
     hp.filepath
     hp.optparse-applicative
     hp.process
