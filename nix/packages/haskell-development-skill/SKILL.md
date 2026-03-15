@@ -118,6 +118,15 @@ provides before reaching for upstream packages. Common traps:
   misinterpreted, use a meaningful sum type or smart constructor instead
 - **Never use Float/Double for quantities** (money, counts, scores): use `Int64`
   representing minimal units
+- **Bag types for function parameters**: when a function takes 3+ arguments of
+  primitive or opaque types (`Bool`, `Int`, `FilePath`, `Text`), introduce a
+  record so field names document intent at the call site. Positional arguments
+  are fine when types alone distinguish meaning (e.g., `Text -> Int -> a`), but
+  `Bool -> FilePath -> Int -> m a` forces the reader to check the definition
+- **Newtypes for domain vocabulary**: use newtypes not only for safety (hiding
+  constructors) but also to name domain concepts at call sites. A `Watermark`
+  is clearer than an `Int` even if the constructor is exported — the type name
+  documents what the value *means*, not just what it *is*
 - **Never weaken strict fields to Maybe.** If your diff changes an existing field to
   `Maybe` on any record type, STOP and ask the user for guidance before proceeding.
   Changing `!T` to `!(Maybe T)` moves a compile-time guarantee to a runtime check —
@@ -215,6 +224,41 @@ provides before reaching for upstream packages. Common traps:
 - Verify laws (associativity, identity) for custom instances — equational
   reasoning catches bugs that tests miss
 
+## Documentation
+
+Use [Haddock](https://haskell-haddock.readthedocs.io/latest/markup.html)
+format for all documentation.
+
+### What to document
+
+- **Every exported type and function** gets a `-- |` comment. Focus on
+  *what* and *why*, not *how* — the implementation is right below
+- For data types: explain what the type represents in the domain and when
+  to use it
+- For functions: explain the contract — what it expects, what it returns,
+  and any notable behavior (fallbacks, edge cases). Skip obvious accessors
+- Internal (unexported) helpers do not need haddock unless the logic is
+  non-obvious
+
+### Haddock syntax
+
+- `-- |` before a declaration, or `-- ^` after an argument/field:
+
+    ```haskell
+    -- | Resolve the watermark position from disk.
+    resolveWatermark
+      :: HasLogFunc env
+      => Bool      -- ^ full resync requested
+      -> FilePath  -- ^ cursor file path
+      -> Int       -- ^ total entry count
+      -> RIO env Watermark
+    ```
+
+- Reference identifiers with single quotes: @'functionName'@, @'TypeName'@
+- Reference modules with double quotes: @"CCS.Process"@
+- Inline code with @\@@: @\@Nothing\@@
+- Emphasis with @/slashes/@, bold with @__underscores__@
+
 ## Style
 
 - **Prefer declarative over imperative**: use `<|>`, `<$>`, `fromMaybe`,
@@ -238,3 +282,8 @@ provides before reaching for upstream packages. Common traps:
   over negated conditions with `unless`
 - Use `do` notation with `RecordWildCards` for record assembly instead of
   `<$>`/`<*>` chains (clearer error messages when fields change)
+- **Extract pure logic, inline IO helpers**: extract pure functions to top level
+  when they have testable branching logic (gate checks, context resolution).
+  Keep single-use IO helpers as `where` bindings — promoting a 4-line
+  `doesFileExist`/`readFileBinary` wrapper to a named top-level function adds
+  indirection without testability
