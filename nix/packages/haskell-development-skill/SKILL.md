@@ -154,6 +154,11 @@ provides before reaching for upstream packages. Common traps:
   don't wrap fields in `Maybe` to represent "might not exist"
 - When a type intentionally omits variants from the domain (e.g., only modeling `text`
   blocks from a richer format), document what is omitted and why in a comment
+- **Result types over nested branches**: when a function has multiple early-exit
+  conditions (empty input, timeout, lock contention, etc.), define a sum type
+  enumerating all outcomes. This makes the result space explicit, documented, and
+  exhaustively checkable by the compiler — nested `if`/`case` trees hide the
+  outcome set in control flow
 
 ## Strings & Logging
 
@@ -216,6 +221,11 @@ provides before reaching for upstream packages. Common traps:
   and monadic/applicative combinators instead of nested `case`/`if` trees.
   Flatten decision logic into a pipeline of `Maybe`/`Either` values rather
   than branching at each step
+- **Pure gate pipelines**: when a function must pass through several
+  preconditions before doing IO, extract each check as a pure function
+  returning `Either ResultType a` and compose them with `>>=`. The main
+  body becomes a single `case gate of Left r -> …; Right val -> doWork val`.
+  This keeps validation logic pure, testable, and flat
 - Prefer `let ... in` over `where` for bindings; `where` acceptable for
   local function definitions and small bindings
 - `let` and `in` keywords live on their own lines

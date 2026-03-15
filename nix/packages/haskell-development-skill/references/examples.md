@@ -515,6 +515,86 @@ processItems :: NonEmpty a -> Result
 processItems xs = compute xs
 ```
 
+## Error Handling: Result Types Over Nested Branches
+
+```haskell
+-- BAD: outcomes hidden in nested if/case control flow
+runJob :: JobConfig -> RIO env ()
+runJob config = do
+  items <- fetchItems config
+  case items of
+    [] -> logDebug "Nothing to do"
+    _ -> do
+      ready <- checkReady config
+      if not ready
+        then logDebug "Not ready"
+        else do
+          locked <- acquireLock config
+          if not locked
+            then logWarn "Lock busy"
+            else processItems items
+
+-- GOOD: sum type enumerates all outcomes — compiler-checked, documented
+data JobResult
+  = JobProcessed !Int
+  | JobNothingToDo
+  | JobNotReady
+  | JobLockBusy
+  deriving stock (Eq, Show)
+
+runJob :: JobConfig -> RIO env JobResult
+runJob config = do
+  items <- fetchItems config
+  now <- getCurrentTime
+  let
+    gate = checkItems items >>= checkReady now config
+  case gate of
+    Left result -> pure result
+    Right readyItems -> acquireAndProcess config readyItems
+```
+
+## Error Handling: Pure Gate Pipelines
+
+```haskell
+-- BAD: preconditions interleaved with IO, nested 3 levels deep
+aggregate signalDir threshold process = do
+  signals <- discover signalDir
+  case signals of
+    [] -> pure NoSignals
+    _ -> do
+      now <- getCurrentTime
+      if not (isQuiet now threshold signals)
+        then pure NotReady
+        else do
+          result <- withLock lockPath (mapM_ process signals)
+          case result of
+            Nothing -> pure LockBusy
+            Just () -> pure (Done (length signals))
+
+-- GOOD: pure gates composed with >>=, IO only on happy path
+aggregate signalDir threshold process = do
+  signals <- discover signalDir
+  now <- getCurrentTime
+  let
+    gate = checkSignals signals >>= checkQuiet now threshold
+  case gate of
+    Left result -> pure result
+    Right ready -> acquireAndProcess ready
+ where
+  checkSignals [] = Left NoSignals
+  checkSignals ss = Right ss
+
+  checkQuiet now thresh signals
+    | isQuiet now thresh signals = Right signals
+    | otherwise = Left NotReady
+
+  acquireAndProcess signals = do
+    result <- withLock lockPath (mapM_ process signals)
+    pure $ case result of
+      Nothing -> LockBusy
+      Just () -> Done (length signals)
+```
+
 ## Strings & Logging
 
 ```haskell

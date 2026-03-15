@@ -116,30 +116,39 @@ runAggregation
   -> RIO env AggregateResult
 runAggregation signalDir quietMinutes processOne = do
   signals <- discoverSignals signalDir
-  case signals of
-    [] -> do
-      logDebug "No signals found"
-      pure NoSignalsFound
-    _ -> do
-      now <- liftIO getCurrentTime
-      if not (isQuietPeriodElapsed now quietMinutes signals)
-        then do
-          logDebug "Quiet period not yet elapsed"
-          pure QuietPeriodNotElapsed
-        else do
-          let
-            lockPath = signalDir </> ".aggregate.lock"
-          result <- withLockFile lockPath $ do
-            logInfo $ "Processing " <> display (length signals) <> " signal(s)"
-            forM_ signals $ \signal -> do
-              logInfo
-                $ "Processing session: "
-                <> let SessionId sid = asSessionId signal in display sid
-              processOne signal
-              consumeSignal signal
-          case result of
-            Nothing -> do
-              logWarn "Lock busy, another aggregation is running"
-              pure LockBusy
-            Just () ->
-              pure (AggregatedSessions (length signals))
+  now <- liftIO getCurrentTime
+  let
+    gate = checkSignals signals >>= checkQuietPeriod now quietMinutes
+  case gate of
+    Left result -> do
+      logDebug $ "Skipping aggregation: " <> displayShow result
+      pure result
+    Right readySignals ->
+      acquireAndProcess readySignals
+ where
+  checkSignals [] = Left NoSignalsFound
+  checkSignals ss = Right ss
+
+  checkQuietPeriod now threshold signals
+    | isQuietPeriodElapsed now threshold signals = Right signals
+    | otherwise = Left QuietPeriodNotElapsed
+
+  acquireAndProcess signals = do
+    let
+      lockPath = signalDir </> ".aggregate.lock"
+    result <- withLockFile lockPath (processAll signals)
+    case result of
+      Nothing -> do
+        logWarn "Lock busy, another aggregation is running"
+        pure LockBusy
+      Just () ->
+        pure (AggregatedSessions (length signals))
+
+  processAll signals = do
+    logInfo $ "Processing " <> display (length signals) <> " signal(s)"
+    forM_ signals $ \signal -> do
+      let
+        SessionId sid = asSessionId signal
+      logInfo $ "Processing session: " <> display sid
+      processOne signal
+      consumeSignal signal
