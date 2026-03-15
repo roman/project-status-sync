@@ -222,5 +222,9 @@ provides before reaching for upstream packages. Common traps:
 - `where` keyword lives on its own line
 - Point-free when it improves clarity; named arguments when composition would
   obscure intent (avoid `((==) <*>)` style)
+- **Explaining variables for conditionals**: when a conditional predicate is more
+  than a simple variable or single function call, extract it into a named `let`
+  binding. Prefer positive names (`hasContent`, `isReady`) paired with `when`
+  over negated conditions with `unless`
 - Use `do` notation with `RecordWildCards` for record assembly instead of
   `<$>`/`<*>` chains (clearer error messages when fields change)

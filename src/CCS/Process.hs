@@ -268,8 +268,9 @@ generateHandoff config signal events today projectDir = do
             <> ".md"
         handoffPath = handoffDir </> filename
         content = stripTopicLine out
+        hasContent = not (T.null (T.strip content))
 
-      unless (T.null (T.strip content)) $ do
+      when hasContent $ do
         createDirectoryIfMissing True handoffDir
         writeFileBinary handoffPath (T.encodeUtf8 content)
         logInfo $ "Wrote handoff: " <> fromString filename

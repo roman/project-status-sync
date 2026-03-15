@@ -650,6 +650,36 @@ mkUser = do
   pure User{..}
 ```
 
+## Style: Explaining Variables for Conditionals
+
+```haskell
+-- BAD: complex predicate inlined in conditional
+unless (T.null (T.strip content)) $ do
+  createDirectoryIfMissing True outDir
+  writeFileBinary path (T.encodeUtf8 content)
+
+-- GOOD: explaining variable names the intent
+let
+  hasContent = not (T.null (T.strip content))
+
+when hasContent $ do
+  createDirectoryIfMissing True outDir
+  writeFileBinary path (T.encodeUtf8 content)
+
+-- BAD: multi-part condition inlined
+when (Map.member key cache && not (isExpired now (cache Map.! key))) $
+  serve (cache Map.! key)
+
+-- GOOD: named conditions, each self-documenting
+let
+  isCached = Map.member key cache
+  isFresh = maybe False (not . isExpired now) (Map.lookup key cache)
+  canServeFromCache = isCached && isFresh
+
+when canServeFromCache $
+  serve (cache Map.! key)
+```
+
 ## Algebraic Design: Semigroup/Monoid from Applicative
 
 ```haskell
