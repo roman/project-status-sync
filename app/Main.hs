@@ -60,6 +60,7 @@ data AggregateConfig = AggregateConfig
   , acOrgMappings :: !OrgMappings
   , acProjectOverrides :: !ProjectOverrides
   , acFullResync :: !Bool
+  , acMaxSignals :: !Int
   }
 
 data Command
@@ -105,7 +106,7 @@ main = do
             , pcProjectOverrides = acProjectOverrides
             , pcFullResync = acFullResync
             }
-      result <- runAggregation acSignalDir threshold (processSession config)
+      result <- runAggregation acSignalDir threshold acMaxSignals (processSession config)
       case result of
         AggregatedSessions touchedProjects -> do
           let
@@ -166,6 +167,7 @@ aggregateParser =
     <*> fmap (OrgMappings . Map.fromList) (many (option (maybeReader parseKeyValue) (long "org-mapping" <> metavar "KEY=VALUE" <> help "Map git host/org prefix to name (repeatable)")))
     <*> fmap (ProjectOverrides . Map.fromList) (many (option (maybeReader parseKeyValue) (long "project-override" <> metavar "KEY=PATH" <> help "Override output subpath for project key (repeatable)")))
     <*> switch (long "full-resync" <> help "Force full STATUS.md regeneration (ignore .last-synthesized cursor)")
+    <*> option auto (long "max-signals" <> metavar "N" <> value 20 <> help "Maximum signals to process per run (default: 20)")
 
 parseKeyValue :: String -> Maybe (Text, Text)
 parseKeyValue s =

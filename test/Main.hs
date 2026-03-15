@@ -525,7 +525,7 @@ aggregateTests =
         [ testCase "returns NoSignalsFound for empty dir" $ do
             tmpDir <- getTemporaryDirectory
             (dir, cleanup) <- createTempSignalDir tmpDir
-            result <- runSimpleApp $ runAggregation dir twentyMinutes (\_ -> pure (Nothing :: Maybe ()))
+            result <- runSimpleApp $ runAggregation dir twentyMinutes 20 (\_ -> pure (Nothing :: Maybe ()))
             cleanup
             result @?= NoSignalsFound
         , testCase "collects results from callback" $ do
@@ -538,7 +538,7 @@ aggregateTests =
             writeSignal (dir </> "session-bbb.available") payload2
             result <-
               runSimpleApp
-                $ runAggregation dir (secondsToNominalDiffTime 0)
+                $ runAggregation dir (secondsToNominalDiffTime 0) 20
                 $ \signal ->
                   let
                     SessionId sid = asSessionId signal

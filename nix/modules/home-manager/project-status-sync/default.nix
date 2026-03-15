@@ -28,6 +28,10 @@ let
     "--llm-arg"
     a
   ]) cfg.llmArgs
+  ++ [
+    "--max-signals"
+    (toString cfg.maxSignals)
+  ]
   ++ lib.concatMap (a: [
     "--org-mapping"
     a
@@ -110,6 +114,12 @@ in
       default = { };
       description = "Override output subpath for specific project keys.";
     };
+
+    maxSignals = lib.mkOption {
+      type = lib.types.int;
+      default = 20;
+      description = "Maximum signals to process per aggregation run.";
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -136,6 +146,7 @@ in
       Unit.Description = "Project status sync — periodic ccs aggregation";
       Service = {
         Type = "oneshot";
+        TimeoutStartSec = "30min";
         ExecStart = toString aggregateScript;
         Environment = [
           "PATH=${config.home.profileDirectory}/bin:/usr/bin:/bin"

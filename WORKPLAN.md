@@ -33,12 +33,12 @@
 | 4 | Retrieval: context injection (optional) | DEFERRED | 3 |
 | 5 | Archival: manage EVENTS.jsonl growth | DEFERRED | 4 |
 | S.PS | Project Status Sync: periodic service module | IN PROGRESS (S.PS.1-4,6 done) | S.PS.5 quality portion blocked by 3.4 |
-| 6 | Production audit fixes | IN PROGRESS (6.1 done) | — |
+| 6 | Production audit fixes | **DONE** | — |
 | 6.1 | Skip non-git projects | **DONE** | — |
 | 6.2 | Batch-aware synthesis | **DONE** | — |
 | 6.3 | Handoff dedup via prior context | **DONE** | — |
 | 6.4 | Incremental synthesis with watermark cursor | **DONE** | — |
-| 6.5 | Service runtime hardening | NOT STARTED | — |
+| 6.5 | Service runtime hardening | **DONE** | — |
 
 ## Phase Diagram
 
@@ -919,7 +919,7 @@ Full design: `notes/plans/2026-03-14-phase-6-production-audit-fixes.md`
 - [x] Handoff prompt receives prior handoff context; duplicate handoffs suppressed
 - [x] Synthesis uses watermark cursor; only new events fed to prompt
 - [x] Synthesis input uses compact tagged-line format (not raw JSONL)
-- [ ] Service completes full signal backlog without SIGTERM
+- [x] Service completes full signal backlog without SIGTERM
 - [x] `--full-resync` flag regenerates STATUS.md from full EVENTS.jsonl
 
 ### Progress
@@ -928,16 +928,15 @@ Full design: `notes/plans/2026-03-14-phase-6-production-audit-fixes.md`
 - [x] 6.2: Batch-aware synthesis
 - [x] 6.3: Handoff dedup via prior context
 - [x] 6.4: Incremental synthesis with watermark cursor
-- [ ] 6.5: Service runtime hardening
+- [x] 6.5: Service runtime hardening
 
-**Sandbox constraint** (2026-03-15): The bubblewrap sandbox does not include `file-embed` in
-its GHC package database (devenv `haskellDeps` is missing `hp.file-embed`). Tests can only be
-run by temporarily removing `file-embed` from the executable stanza's `build-depends` since
-it's not used by the library or test suite. The devenv should add `hp.file-embed` to fix this.
+**Sandbox constraint** (2026-03-15, resolved): `file-embed` is now in the GHC package database.
+All 128 tests pass in-sandbox without workarounds.
 
 See:
 - `notes/handoffs/2026-03-15-phase-6.1-skip-non-git.md`
 - `notes/handoffs/2026-03-15-phase-6.2-batch-aware-synthesis.md`
 - `notes/handoffs/2026-03-15-phase-6.3-handoff-dedup.md`
 - `notes/handoffs/2026-03-15-phase-6.4-incremental-synthesis.md`
+- `notes/handoffs/2026-03-15-phase-6.5-service-runtime-hardening.md`
 - `notes/handoffs/2026-03-14-phase-6.4-refactor-synthesis.md`

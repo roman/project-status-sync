@@ -123,9 +123,10 @@ runAggregation
   :: (HasLogFunc env, Show a)
   => FilePath
   -> NominalDiffTime
+  -> Int
   -> (AvailabilitySignal -> RIO env a)
   -> RIO env (AggregateResult a)
-runAggregation signalDir quietMinutes processOne = do
+runAggregation signalDir quietMinutes maxSignals processOne = do
   signals <- discoverSignals signalDir
   now <- liftIO getCurrentTime
   let
@@ -134,8 +135,18 @@ runAggregation signalDir quietMinutes processOne = do
     Left result -> do
       logDebug $ "Skipping aggregation: " <> displayShow result
       pure result
-    Right readySignals ->
-      acquireAndProcess readySignals
+    Right readySignals -> do
+      let
+        capped = take maxSignals readySignals
+        dropped = length readySignals - length capped
+      when (dropped > 0)
+        $ logInfo
+        $ "Capped signals to "
+        <> display maxSignals
+        <> " (deferred "
+        <> display dropped
+        <> ")"
+      acquireAndProcess capped
  where
   acquireAndProcess signals = do
     let
