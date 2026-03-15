@@ -19,7 +19,7 @@ import Control.Monad.Trans.Maybe (MaybeT (..), runMaybeT)
 
 -- Data.Text: RIO.Text does not re-export breakOn/breakOnEnd
 import Data.Text qualified as DT
-import RIO.FilePath (makeRelative, takeFileName)
+import RIO.FilePath (makeRelative)
 import RIO.List (sortOn)
 import System.Process.Typed (proc, readProcess)
 
@@ -36,19 +36,15 @@ data Project = Project
   }
   deriving stock (Eq, Show)
 
--- | Identify project from working directory.
--- Uses git remote + relative subpath for git repos,
--- falls back to directory name for non-git directories.
 identifyProject
   :: (HasLogFunc env, MonadIO m, MonadReader env m)
   => FilePath
-  -> m Project
-identifyProject cwd = do
-  mProject <- runMaybeT $ do
+  -> m (Maybe Project)
+identifyProject cwd =
+  runMaybeT $ do
     gitRoot <- MaybeT $ gitCommand cwd ["rev-parse", "--show-toplevel"]
     remoteUrl <- MaybeT $ gitCommand cwd ["remote", "get-url", "origin"]
     pure $ gitProject (T.unpack gitRoot) remoteUrl cwd
-  pure $ fromMaybe (directoryFallback cwd) mProject
 
 gitProject :: FilePath -> Text -> FilePath -> Project
 gitProject gitRoot remoteUrl cwd =
@@ -116,17 +112,6 @@ deriveName key =
     (_, afterSlash) = DT.breakOnEnd "/" key
   in
     if T.null afterSlash then key else afterSlash
-
-directoryFallback :: FilePath -> Project
-directoryFallback cwd =
-  let
-    name = T.pack $ takeFileName cwd
-  in
-    Project
-      { projectKey = ProjectKey name
-      , projectName = ProjectName name
-      , projectPath = cwd
-      }
 
 newtype OrgMappings = OrgMappings (Map Text Text)
   deriving stock (Eq, Show)

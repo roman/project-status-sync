@@ -168,45 +168,49 @@ processSession config@ProcessConfig{..} signal = do
   let
     SessionId sid = asSessionId signal
 
-  logInfo $ "Filtering transcript: " <> fromString (asTranscriptPath signal)
-  filtered <- filterTranscriptFile (asTranscriptPath signal)
+  mProject <- identifyProject (asProjectPath signal)
+  case mProject of
+    Nothing ->
+      logInfo $ "Skipping non-git session " <> display sid
+    Just project -> do
+      logInfo $ "Filtering transcript: " <> fromString (asTranscriptPath signal)
+      filtered <- filterTranscriptFile (asTranscriptPath signal)
 
-  if T.null filtered
-    then logWarn $ "Empty transcript after filtering for session " <> display sid
-    else do
-      logInfo $ "Running extraction for session " <> display sid
-      mOut <- runLLMPrompt config pcExtractionPrompt filtered
+      if T.null filtered
+        then logWarn $ "Empty transcript after filtering for session " <> display sid
+        else do
+          logInfo $ "Running extraction for session " <> display sid
+          mOut <- runLLMPrompt config pcExtractionPrompt filtered
 
-      withLLMResult logError mOut ("Extraction failed for session " <> display sid) $ \out -> do
-        let
-          events = parseExtractionOutput out
-        logInfo $ "Extracted " <> display (length events) <> " event(s) for session " <> display sid
+          withLLMResult logError mOut ("Extraction failed for session " <> display sid) $ \out -> do
+            let
+              events = parseExtractionOutput out
+            logInfo $ "Extracted " <> display (length events) <> " event(s) for session " <> display sid
 
-        project <- identifyProject (asProjectPath signal)
-        now <- liftIO getCurrentTime
+            now <- liftIO getCurrentTime
 
-        let
-          today = utctDay now
-          mkEntry event =
-            EventLogEntry
-              { eleDate = today
-              , eleSessionId = asSessionId signal
-              , eleProjectKey = projectKey project
-              , eleProjectName = projectName project
-              , eleEvent = event
-              }
-          projectDir = pcOutputDir </> deriveOutputSubpath (projectKey project) pcOrgMappings pcProjectOverrides
-          eventsFile = projectDir </> "EVENTS.jsonl"
+            let
+              today = utctDay now
+              mkEntry event =
+                EventLogEntry
+                  { eleDate = today
+                  , eleSessionId = asSessionId signal
+                  , eleProjectKey = projectKey project
+                  , eleProjectName = projectName project
+                  , eleEvent = event
+                  }
+              projectDir = pcOutputDir </> deriveOutputSubpath (projectKey project) pcOrgMappings pcProjectOverrides
+              eventsFile = projectDir </> "EVENTS.jsonl"
 
-        createDirectoryIfMissing True projectDir
+            createDirectoryIfMissing True projectDir
 
-        let
-          entries = map mkEntry events
-        mapM_ (appendJsonLine eventsFile) entries
+            let
+              entries = map mkEntry events
+            mapM_ (appendJsonLine eventsFile) entries
 
-        generateHandoff config signal events today projectDir
-        generateProgressEntry config signal events now projectDir
-        generateStatus config signal (projectName project) eventsFile projectDir
+            generateHandoff config signal events today projectDir
+            generateProgressEntry config signal events now projectDir
+            generateStatus config signal (projectName project) eventsFile projectDir
 
 generateHandoff
   :: HasLogFunc env
