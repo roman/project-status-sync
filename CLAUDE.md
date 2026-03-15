@@ -76,10 +76,12 @@ Applies to commits that touch `src/`, `app/`, or `test/`. Doc-only commits skip 
 After implementation and before committing:
 
 1. **Run `cabal test`** — do not proceed if tests fail
-2. **Spawn `code-critic` agent** (via Task tool) to review your changes.
+2. **Spawn `code-critic` agent** (via Task tool) to review your changes using the haskell-development-skill.
    Include the WORKPLAN item text so the critic can verify spec compliance.
-3. Address blocker and major severity findings. Ignore stylistic nitpicks.
-4. Do not loop more than twice — ship it after two rounds of fixes.
+3. **If introducing new types**, spawn a `socratic-naming` agent (model: opus, high effort)
+   to interrogate the naming choices before proceeding.
+4. Address blocker and major severity findings. Ignore stylistic nitpicks.
+5. Do not loop more than twice — ship it after two rounds of fixes.
 
 ```bash
 # Correct workflow (implementation commits):
@@ -87,7 +89,8 @@ After implementation and before committing:
 1. Cross-check notes/proposals/ for APPROVED proposals affecting same types/APIs
 2. Make code changes addressing each requirement
 3. Run `cabal test` — do not proceed if tests fail
-4. Spawn code-critic with WORKPLAN item text (address blocker/major, max 2 rounds)
+4. Spawn code-critic (with haskell-development-skill) + WORKPLAN item text (blocker/major, max 2 rounds)
+4a. If new types introduced: spawn socratic-naming (opus, high effort) for naming review
 5. Update WORKPLAN.md (progress, status, handoff notes)
 6. Append to progress.log
 7. Create/update handoff in notes/handoffs/ (must include Spec Compliance section)
