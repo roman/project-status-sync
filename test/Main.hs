@@ -58,7 +58,9 @@ import CCS.Filter (
  )
 import CCS.Process (
   EventLogEntry (..),
+  formatEventsCompact,
   formatEventsInput,
+  parseEventsJsonl,
   parseExtractionOutput,
   parseTopicSlug,
   stripCodeFences,
@@ -78,7 +80,7 @@ import CCS.Project (
  )
 import CCS.Signal (SignalPayload (..), writeSignal)
 import RIO.List (nub)
-import RIO.Time (NominalDiffTime, UTCTime (..), addUTCTime, fromGregorian, secondsToNominalDiffTime)
+import RIO.Time (Day, NominalDiffTime, UTCTime (..), addUTCTime, fromGregorian, secondsToNominalDiffTime)
 
 main :: IO ()
 main = defaultMain tests
@@ -575,6 +577,21 @@ mkProject key name =
     , projectPath = "/tmp/" <> T.unpack name
     }
 
+mkEventLogEntry :: Day -> Text -> Text -> Text -> EventLogEntry
+mkEventLogEntry day sessionId tag text =
+  EventLogEntry
+    { eleDate = day
+    , eleSessionId = SessionId sessionId
+    , eleProjectKey = ProjectKey "test/key"
+    , eleProjectName = ProjectName "test"
+    , eleEvent =
+        SessionEvent
+          { eventTag = EventTag tag
+          , eventText = text
+          , eventSource = EventSource "conversation"
+          }
+    }
+
 dedupTests :: TestTree
 dedupTests =
   testGroup
@@ -781,6 +798,83 @@ processTests =
         , testCase "handles no trailing newline on closing fence"
             $ stripCodeFences "```markdown\n# Status\n```"
             @?= "# Status\n"
+        ]
+    , testGroup
+        "formatEventsCompact"
+        [ testCase "empty list produces empty output"
+            $ formatEventsCompact []
+            @?= ""
+        , testCase "single entry produces date header and bullet"
+            $ let
+                entry = mkEventLogEntry (fromGregorian 2026 3 11) "04fe7783abcd" "decision" "use file-embed"
+              in
+                formatEventsCompact [entry]
+                  @?= "## 2026-03-11 [04fe7783]\n\n- [decision] use file-embed\n"
+        , testCase "groups entries by date and session"
+            $ let
+                e1 = mkEventLogEntry (fromGregorian 2026 3 11) "session-a" "decision" "chose X"
+                e2 = mkEventLogEntry (fromGregorian 2026 3 11) "session-a" "next" "do Y"
+                e3 = mkEventLogEntry (fromGregorian 2026 3 11) "session-b" "context" "found Z"
+              in
+                formatEventsCompact [e1, e2, e3]
+                  @?= "## 2026-03-11 [session-]\n\n- [decision] chose X\n- [next] do Y\n\n## 2026-03-11 [session-]\n\n- [context] found Z\n"
+        , testCase "sorts by date then session"
+            $ let
+                e1 = mkEventLogEntry (fromGregorian 2026 3 12) "bbb" "next" "later"
+                e2 = mkEventLogEntry (fromGregorian 2026 3 11) "aaa" "decision" "earlier"
+              in
+                T.isPrefixOf "## 2026-03-11" (formatEventsCompact [e1, e2])
+                  @?= True
+        , testCase "truncates session ID to 8 chars"
+            $ let
+                entry = mkEventLogEntry (fromGregorian 2026 3 11) "abcdefghijklmnop" "decision" "test"
+                result = formatEventsCompact [entry]
+              in
+                T.isInfixOf "[abcdefgh]" result @?= True
+        ]
+    , testGroup
+        "parseEventsJsonl"
+        [ testCase "parses valid JSONL lines"
+            $ let
+                line1 = "{\"date\":\"2026-03-11\",\"session\":\"abc\",\"project\":\"repo\",\"project_key\":\"github.com/user/repo\",\"tag\":\"decision\",\"text\":\"chose X\",\"source\":\"conversation\"}"
+                line2 = "{\"date\":\"2026-03-12\",\"session\":\"def\",\"project\":\"repo\",\"project_key\":\"github.com/user/repo\",\"tag\":\"next\",\"text\":\"do Y\",\"source\":\"conversation\"}"
+                input = T.encodeUtf8 (line1 <> "\n" <> line2 <> "\n")
+              in
+                length (parseEventsJsonl input) @?= 2
+        , testCase "skips invalid lines"
+            $ let
+                valid = "{\"date\":\"2026-03-11\",\"session\":\"abc\",\"project\":\"repo\",\"project_key\":\"k\",\"tag\":\"decision\",\"text\":\"ok\",\"source\":\"conversation\"}"
+                input = T.encodeUtf8 ("not json\n" <> valid <> "\n{broken\n")
+              in
+                length (parseEventsJsonl input) @?= 1
+        , testCase "handles empty input"
+            $ parseEventsJsonl ""
+            @?= []
+        , testCase "handles trailing newline"
+            $ let
+                line = "{\"date\":\"2026-03-11\",\"session\":\"abc\",\"project\":\"repo\",\"project_key\":\"k\",\"tag\":\"next\",\"text\":\"test\",\"source\":\"conversation\"}"
+                input = T.encodeUtf8 (line <> "\n")
+              in
+                length (parseEventsJsonl input) @?= 1
+        , testCase "round-trips with encode"
+            $ let
+                entry =
+                  EventLogEntry
+                    { eleDate = fromGregorian 2026 3 11
+                    , eleSessionId = SessionId "test-sess"
+                    , eleProjectKey = ProjectKey "github.com/user/repo"
+                    , eleProjectName = ProjectName "repo"
+                    , eleEvent =
+                        SessionEvent
+                          { eventTag = EventTag "decision"
+                          , eventText = "chose X"
+                          , eventSource = EventSource "conversation"
+                          }
+                    }
+                encoded = toStrictBytes (encode entry) <> "\n"
+                parsed = parseEventsJsonl encoded
+              in
+                parsed @?= [entry]
         ]
     ]
 
@@ -1075,4 +1169,29 @@ processProps =
             }
       in
         decode (encode entry) === Just entry
+  , testProperty "parseEventsJsonl round-trips with encode" $ \(event :: SessionEvent) ->
+      let
+        entry =
+          EventLogEntry
+            { eleDate = fromGregorian 2026 1 1
+            , eleSessionId = SessionId "test-session"
+            , eleProjectKey = ProjectKey "test/key"
+            , eleProjectName = ProjectName "test"
+            , eleEvent = event
+            }
+        encoded = toStrictBytes (encode entry) <> "\n"
+      in
+        parseEventsJsonl encoded === [entry]
+  , testProperty "formatEventsCompact never crashes" $ \(event :: SessionEvent) ->
+      let
+        entry =
+          EventLogEntry
+            { eleDate = fromGregorian 2026 1 1
+            , eleSessionId = SessionId "s"
+            , eleProjectKey = ProjectKey "k"
+            , eleProjectName = ProjectName "n"
+            , eleEvent = event
+            }
+      in
+        T.length (formatEventsCompact [entry]) > 0
   ]

@@ -917,20 +917,26 @@ Full design: `notes/plans/2026-03-14-phase-6-production-audit-fixes.md`
 - [ ] Non-git sessions are skipped and signals consumed without processing
 - [ ] Synthesis runs once per project per `ccs aggregate` invocation
 - [ ] Handoff prompt receives prior handoff context; duplicate handoffs suppressed
-- [ ] Synthesis uses watermark cursor; only new events fed to prompt
-- [ ] Synthesis input uses compact tagged-line format (not raw JSONL)
+- [x] Synthesis uses watermark cursor; only new events fed to prompt
+- [x] Synthesis input uses compact tagged-line format (not raw JSONL)
 - [ ] Service completes full signal backlog without SIGTERM
-- [ ] `--full-resync` flag regenerates STATUS.md from full EVENTS.jsonl
+- [x] `--full-resync` flag regenerates STATUS.md from full EVENTS.jsonl
 
 ### Progress
 
 - [x] 6.1: Skip non-git projects
 - [x] 6.2: Batch-aware synthesis
 - [x] 6.3: Handoff dedup via prior context
-- [ ] 6.4: Incremental synthesis with watermark cursor
+- [x] 6.4: Incremental synthesis with watermark cursor
 - [ ] 6.5: Service runtime hardening
+
+**Sandbox constraint** (2026-03-15): The bubblewrap sandbox does not include `file-embed` in
+its GHC package database (devenv `haskellDeps` is missing `hp.file-embed`). Tests can only be
+run by temporarily removing `file-embed` from the executable stanza's `build-depends` since
+it's not used by the library or test suite. The devenv should add `hp.file-embed` to fix this.
 
 See:
 - `notes/handoffs/2026-03-15-phase-6.1-skip-non-git.md`
 - `notes/handoffs/2026-03-15-phase-6.2-batch-aware-synthesis.md`
 - `notes/handoffs/2026-03-15-phase-6.3-handoff-dedup.md`
+- `notes/handoffs/2026-03-15-phase-6.4-incremental-synthesis.md`

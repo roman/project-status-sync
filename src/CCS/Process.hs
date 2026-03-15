@@ -1,8 +1,10 @@
 module CCS.Process (
   EventLogEntry (..),
   ProcessConfig (..),
+  formatEventsCompact,
   formatEventsInput,
   generateStatusForProject,
+  parseEventsJsonl,
   parseExtractionOutput,
   parseTopicSlug,
   processSession,
@@ -13,6 +15,7 @@ module CCS.Process (
 
 import RIO
 import RIO.List (sort)
+import RIO.Map qualified as Map
 import RIO.Text qualified as T
 
 -- Data.Text: RIO.Text does not re-export breakOn
@@ -22,9 +25,10 @@ import CCS.Aggregate (AvailabilitySignal (..), SessionId (..))
 import CCS.Event (EventSource (..), EventTag (..), SessionEvent (..), appendJsonLine)
 import CCS.Filter (filterTranscriptFile)
 import CCS.Project (OrgMappings (..), Project (..), ProjectKey (..), ProjectName (..), ProjectOverrides (..), deriveOutputSubpath, identifyProject)
-import Data.Aeson (FromJSON (..), ToJSON (..), object, withObject, (.:), (.=))
+import Data.Aeson (FromJSON (..), ToJSON (..), decodeStrict', object, withObject, (.:), (.=))
+import RIO.ByteString qualified as BS
 
-import RIO.Directory (createDirectoryIfMissing, doesDirectoryExist, listDirectory)
+import RIO.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist, listDirectory)
 import RIO.FilePath ((</>))
 import RIO.Time (Day, UTCTime (..), getCurrentTime, utctDay)
 
@@ -43,6 +47,7 @@ data ProcessConfig = ProcessConfig
   , pcBypassClaudeCheck :: !Bool
   , pcOrgMappings :: !OrgMappings
   , pcProjectOverrides :: !ProjectOverrides
+  , pcFullResync :: !Bool
   }
   deriving stock (Show)
 
@@ -116,6 +121,35 @@ formatEventsInput = T.unlines . map formatEvent
       EventTag tag = eventTag
     in
       "[" <> tag <> "] " <> eventText
+
+formatEventsCompact :: [EventLogEntry] -> Text
+formatEventsCompact [] = ""
+formatEventsCompact entries =
+  let
+    grouped =
+      Map.toAscList
+        $ foldl'
+          (\m e -> Map.insertWith (flip (<>)) (eleDate e, eleSessionId e) [e] m)
+          Map.empty
+          entries
+  in
+    T.intercalate "\n" (map formatGroup grouped)
+ where
+  formatGroup ((day, SessionId sid), events) =
+    let
+      prefix = T.take 8 sid
+      header = "## " <> T.pack (show day) <> " [" <> prefix <> "]"
+    in
+      header <> "\n\n" <> T.unlines (map formatBullet events)
+  formatBullet EventLogEntry{eleEvent = SessionEvent{..}} =
+    let
+      EventTag tag = eventTag
+    in
+      "- [" <> tag <> "] " <> eventText
+
+parseEventsJsonl :: ByteString -> [EventLogEntry]
+parseEventsJsonl bs =
+  mapMaybe decodeStrict' $ filter (not . BS.null) $ BS.split 0x0A bs
 
 parseTopicSlug :: Text -> Maybe Text
 parseTopicSlug =
@@ -328,50 +362,121 @@ generateStatusForProject config@ProcessConfig{..} project = do
     ProjectName pnameText = projectName project
     projectDir = pcOutputDir </> deriveOutputSubpath (projectKey project) pcOrgMappings pcProjectOverrides
     eventsFile = projectDir </> "EVENTS.jsonl"
+    cursorFile = projectDir </> ".last-synthesized"
+    statusPath = projectDir </> "STATUS.md"
 
   eventsBytes <- readFileBinary eventsFile
   let
-    eventsContent = T.decodeUtf8With T.lenientDecode eventsBytes
+    allEntries = parseEventsJsonl eventsBytes
+    totalCount = length allEntries
 
-  if T.null eventsContent
+  if null allEntries
     then logDebug $ "No events for synthesis, skipping project " <> display pnameText
     else do
-      let
-        handoffDir = projectDir </> "handoffs"
-      handoffExists <- doesDirectoryExist handoffDir
-      handoffFiles <-
-        if handoffExists
-          then sort <$> listDirectory handoffDir
-          else pure []
+      cursor <-
+        if pcFullResync
+          then do
+            logInfo "Full resync requested, ignoring cursor"
+            pure 0
+          else do
+            mCursor <- readCursor cursorFile totalCount
+            case mCursor of
+              Just n -> pure n
+              Nothing -> do
+                logWarn "Cursor missing or invalid, running full synthesis"
+                pure 0
 
-      let
-        handoffList = case handoffFiles of
-          [] -> "No handoff files yet.\n"
-          fs ->
-            "Recent handoff files:\n"
-              <> T.unlines (map (\f -> "- handoffs/" <> T.pack f) fs)
-        input =
-          "Project: "
-            <> pnameText
-            <> "\n\n"
-            <> handoffList
-            <> "\n"
-            <> eventsContent
+      if cursor >= totalCount && cursor > 0
+        then logInfo $ "No new events for project " <> display pnameText <> " (cursor=" <> display cursor <> ", total=" <> display totalCount <> ")"
+        else do
+          let
+            isIncremental = cursor > 0
+            newEntries = drop cursor allEntries
+            eventsToFormat = if isIncremental then newEntries else allEntries
 
+          let
+            handoffDir = projectDir </> "handoffs"
+          handoffExists <- doesDirectoryExist handoffDir
+          handoffFiles <-
+            if handoffExists
+              then sort <$> listDirectory handoffDir
+              else pure []
+
+          (previousStatus, effectiveEvents) <-
+            if isIncremental
+              then do
+                existsStatus <- doesFileExist statusPath
+                if existsStatus
+                  then do
+                    prev <- T.decodeUtf8With T.lenientDecode <$> readFileBinary statusPath
+                    pure (prev, eventsToFormat)
+                  else do
+                    logWarn "STATUS.md missing during incremental synthesis, falling back to full"
+                    pure ("", allEntries)
+              else pure ("", eventsToFormat)
+
+          let
+            handoffList = case handoffFiles of
+              [] -> "No handoff files yet.\n"
+              fs ->
+                "Recent handoff files:\n"
+                  <> T.unlines (map (\f -> "- handoffs/" <> T.pack f) fs)
+            previousSection =
+              if T.null previousStatus
+                then "## Previous STATUS.md\n\nNo previous status — generate from full history.\n"
+                else "## Previous STATUS.md\n\n" <> previousStatus <> "\n"
+            eventsSection = "## Events\n\n" <> formatEventsCompact effectiveEvents
+            input =
+              "Project: "
+                <> pnameText
+                <> "\n\n"
+                <> handoffList
+                <> "\n"
+                <> previousSection
+                <> "\n"
+                <> eventsSection
+
+          let
+            inputLen = T.length input
+          logInfo
+            $ "Running "
+            <> (if isIncremental then "incremental" else "full")
+            <> " status synthesis for project "
+            <> display pnameText
+            <> " ("
+            <> display inputLen
+            <> " chars, "
+            <> display (length effectiveEvents)
+            <> " events)"
+          mOut <- runLLMPrompt config pcSynthesisPrompt input
+          withLLMResult logWarn mOut ("Status synthesis failed for project " <> display pnameText) $ \out -> do
+            writeFileBinary statusPath (T.encodeUtf8 out)
+            writeCursor cursorFile totalCount
+            logInfo
+              $ "Wrote STATUS.md for project "
+              <> display pnameText
+              <> " (cursor updated to "
+              <> display totalCount
+              <> ")"
+
+readCursor :: MonadIO m => FilePath -> Int -> m (Maybe Int)
+readCursor path totalEntries = do
+  exists <- doesFileExist path
+  if not exists
+    then pure Nothing
+    else do
+      bs <- readFileBinary path
       let
-        inputLen = T.length input
-      logInfo
-        $ "Running status synthesis for project "
-        <> display pnameText
-        <> " ("
-        <> display inputLen
-        <> " chars input)"
-      mOut <- runLLMPrompt config pcSynthesisPrompt input
-      withLLMResult logWarn mOut ("Status synthesis failed for project " <> display pnameText) $ \out -> do
-        let
-          statusPath = projectDir </> "STATUS.md"
-        writeFileBinary statusPath (T.encodeUtf8 out)
-        logInfo $ "Wrote STATUS.md for project " <> display pnameText
+        txt = T.strip $ T.decodeUtf8With T.lenientDecode bs
+      case readMaybe (T.unpack txt) of
+        Just n
+          | n >= 0 && n <= totalEntries -> pure (Just n)
+          | otherwise -> pure Nothing
+        Nothing -> pure Nothing
+
+writeCursor :: MonadIO m => FilePath -> Int -> m ()
+writeCursor path count =
+  writeFileBinary path (T.encodeUtf8 (T.pack (show count) <> "\n"))
 
 withLLMResult :: (Utf8Builder -> RIO env ()) -> Maybe Text -> Utf8Builder -> (Text -> RIO env ()) -> RIO env ()
 withLLMResult logLevel mOut failMsg onSuccess =

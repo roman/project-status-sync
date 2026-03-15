@@ -79,3 +79,4 @@
 2026-03-15 12:00 [83d3279d] — Phase 6.3: handoff dedup — generateHandoff prepends prior filenames to prompt, prompt instructs LLM to suppress redundant content
 2026-03-15 14:00 [736c7262] — Phase 6.2: batch-aware synthesis — processSession returns Maybe Project, AggregateResult generic, synthesis runs once per project after dedup
 2026-03-14 20:00 [1c4c700c] — Phase 6: add tests for gate pipeline (checkSignals, checkQuietPeriod), dedup, and runAggregation result collection (103 tests total)
+2026-03-15 05:23 [ac91881e] — Phase 6.4: incremental synthesis — watermark cursor, formatEventsCompact, --full-resync flag, bug fixes from code critic (115 tests pass)

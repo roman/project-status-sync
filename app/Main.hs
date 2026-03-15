@@ -59,6 +59,7 @@ data AggregateConfig = AggregateConfig
   , acBypassClaudeCheck :: !Bool
   , acOrgMappings :: !OrgMappings
   , acProjectOverrides :: !ProjectOverrides
+  , acFullResync :: !Bool
   }
 
 data Command
@@ -102,6 +103,7 @@ main = do
             , pcBypassClaudeCheck = acBypassClaudeCheck
             , pcOrgMappings = acOrgMappings
             , pcProjectOverrides = acProjectOverrides
+            , pcFullResync = acFullResync
             }
       result <- runAggregation acSignalDir threshold (processSession config)
       case result of
@@ -163,6 +165,7 @@ aggregateParser =
     <*> switch (long "bypass-claude-check" <> help "Strip CLAUDECODE env var from child processes (needed inside ralph loops)")
     <*> fmap (OrgMappings . Map.fromList) (many (option (maybeReader parseKeyValue) (long "org-mapping" <> metavar "KEY=VALUE" <> help "Map git host/org prefix to name (repeatable)")))
     <*> fmap (ProjectOverrides . Map.fromList) (many (option (maybeReader parseKeyValue) (long "project-override" <> metavar "KEY=PATH" <> help "Override output subpath for project key (repeatable)")))
+    <*> switch (long "full-resync" <> help "Force full STATUS.md regeneration (ignore .last-synthesized cursor)")
 
 parseKeyValue :: String -> Maybe (Text, Text)
 parseKeyValue s =

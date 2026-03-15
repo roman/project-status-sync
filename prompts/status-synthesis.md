@@ -4,16 +4,23 @@ You are generating a project status document from accumulated events.
 
 ## Your Task
 
-Synthesize EVENTS.jsonl into a STATUS.md that helps someone quickly re-orient to the project after time away.
+Synthesize project events into a STATUS.md that helps someone quickly re-orient to the project after time away.
 
 ## Input
 
 You receive:
-1. Project name and current session metadata
-2. All events from EVENTS.jsonl (observations across all sessions)
-3. List of recent handoff files (for linking)
+1. Project name
+2. List of recent handoff files (for linking)
+3. (Optional) Previous STATUS.md — if provided, update it with the new events
+4. Events in compact tagged-line format (grouped by session, with date headers)
 
-Each event has: date, session, tag (`decision`/`question`/`next`/`blocker`/`resolved`/`context`/`initiative`), text
+Each event group has a date and session prefix header, followed by tagged bullets:
+`- [tag] description` where tag is one of: `decision`, `question`, `next`, `blocker`, `resolved`, `context`, `initiative`
+
+## Incremental vs Full
+
+- **Full synthesis** (no previous STATUS.md): Generate from scratch using all events provided.
+- **Incremental synthesis** (previous STATUS.md provided): Update the existing status with the new events. Preserve information from the previous status that is still relevant. Remove information that has been superseded by newer events.
 
 ## Output Format
 
