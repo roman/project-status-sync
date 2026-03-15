@@ -36,8 +36,8 @@
 | 6 | Production audit fixes | IN PROGRESS (6.1 done) | — |
 | 6.1 | Skip non-git projects | **DONE** | — |
 | 6.2 | Batch-aware synthesis | **DONE** | — |
-| 6.3 | Handoff dedup via prior context | NOT STARTED | — |
-| 6.4 | Incremental synthesis with watermark cursor | NOT STARTED | — |
+| 6.3 | Handoff dedup via prior context | **DONE** | — |
+| 6.4 | Incremental synthesis with watermark cursor | **DONE** | — |
 | 6.5 | Service runtime hardening | NOT STARTED | — |
 
 ## Phase Diagram
@@ -914,9 +914,9 @@ Full design: `notes/plans/2026-03-14-phase-6-production-audit-fixes.md`
 
 ### Gates
 
-- [ ] Non-git sessions are skipped and signals consumed without processing
-- [ ] Synthesis runs once per project per `ccs aggregate` invocation
-- [ ] Handoff prompt receives prior handoff context; duplicate handoffs suppressed
+- [x] Non-git sessions are skipped and signals consumed without processing
+- [x] Synthesis runs once per project per `ccs aggregate` invocation
+- [x] Handoff prompt receives prior handoff context; duplicate handoffs suppressed
 - [x] Synthesis uses watermark cursor; only new events fed to prompt
 - [x] Synthesis input uses compact tagged-line format (not raw JSONL)
 - [ ] Service completes full signal backlog without SIGTERM
@@ -940,3 +940,4 @@ See:
 - `notes/handoffs/2026-03-15-phase-6.2-batch-aware-synthesis.md`
 - `notes/handoffs/2026-03-15-phase-6.3-handoff-dedup.md`
 - `notes/handoffs/2026-03-15-phase-6.4-incremental-synthesis.md`
+- `notes/handoffs/2026-03-14-phase-6.4-refactor-synthesis.md`

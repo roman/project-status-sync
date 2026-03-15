@@ -80,3 +80,4 @@
 2026-03-15 14:00 [736c7262] — Phase 6.2: batch-aware synthesis — processSession returns Maybe Project, AggregateResult generic, synthesis runs once per project after dedup
 2026-03-14 20:00 [1c4c700c] — Phase 6: add tests for gate pipeline (checkSignals, checkQuietPeriod), dedup, and runAggregation result collection (103 tests total)
 2026-03-15 05:23 [ac91881e] — Phase 6.4: incremental synthesis — watermark cursor, formatEventsCompact, --full-resync flag, bug fixes from code critic (115 tests pass)
+2026-03-14 22:00 [635a9395] — Phase 6.4: refactor generateStatusForProject into pure gate pipeline (decideSynthesis, resolveContext, buildSynthesisInput), rename Cursor→Watermark, add 13 unit tests, migrate test JSON to aeson-qq (128 tests pass)

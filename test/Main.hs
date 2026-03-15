@@ -58,11 +58,19 @@ import CCS.Filter (
  )
 import CCS.Process (
   EventLogEntry (..),
+  SynthesisContext (..),
+  SynthesisHistory (..),
+  SynthesisSkip (..),
+  SynthesisWork (..),
+  Watermark (..),
+  buildSynthesisInput,
+  decideSynthesis,
   formatEventsCompact,
   formatEventsInput,
   parseEventsJsonl,
   parseExtractionOutput,
   parseTopicSlug,
+  resolveContext,
   stripCodeFences,
   stripTopicLine,
  )
@@ -303,6 +311,10 @@ projectTests =
 -- | Encode a JSON Value to the JSONL ByteString that filterTranscript expects.
 jsonl :: [Value] -> LBS.ByteString
 jsonl = LBS.intercalate "\n" . map encode
+
+-- | Encode JSON Values to strict JSONL ByteString for parseEventsJsonl.
+strictJsonl :: [Value] -> ByteString
+strictJsonl vs = toStrictBytes (LBS.intercalate "\n" (map encode vs) <> "\n")
 
 filterTests :: TestTree
 filterTests =
@@ -836,15 +848,18 @@ processTests =
         "parseEventsJsonl"
         [ testCase "parses valid JSONL lines"
             $ let
-                line1 = "{\"date\":\"2026-03-11\",\"session\":\"abc\",\"project\":\"repo\",\"project_key\":\"github.com/user/repo\",\"tag\":\"decision\",\"text\":\"chose X\",\"source\":\"conversation\"}"
-                line2 = "{\"date\":\"2026-03-12\",\"session\":\"def\",\"project\":\"repo\",\"project_key\":\"github.com/user/repo\",\"tag\":\"next\",\"text\":\"do Y\",\"source\":\"conversation\"}"
-                input = T.encodeUtf8 (line1 <> "\n" <> line2 <> "\n")
+                line1 =
+                  [aesonQQ|{"date":"2026-03-11","session":"abc","project":"repo","project_key":"github.com/user/repo","tag":"decision","text":"chose X","source":"conversation"}|]
+                line2 =
+                  [aesonQQ|{"date":"2026-03-12","session":"def","project":"repo","project_key":"github.com/user/repo","tag":"next","text":"do Y","source":"conversation"}|]
+                input = strictJsonl [line1, line2]
               in
                 length (parseEventsJsonl input) @?= 2
         , testCase "skips invalid lines"
             $ let
-                valid = "{\"date\":\"2026-03-11\",\"session\":\"abc\",\"project\":\"repo\",\"project_key\":\"k\",\"tag\":\"decision\",\"text\":\"ok\",\"source\":\"conversation\"}"
-                input = T.encodeUtf8 ("not json\n" <> valid <> "\n{broken\n")
+                valid =
+                  [aesonQQ|{"date":"2026-03-11","session":"abc","project":"repo","project_key":"k","tag":"decision","text":"ok","source":"conversation"}|]
+                input = "not json\n" <> toStrictBytes (encode valid) <> "\n{broken\n"
               in
                 length (parseEventsJsonl input) @?= 1
         , testCase "handles empty input"
@@ -852,8 +867,9 @@ processTests =
             @?= []
         , testCase "handles trailing newline"
             $ let
-                line = "{\"date\":\"2026-03-11\",\"session\":\"abc\",\"project\":\"repo\",\"project_key\":\"k\",\"tag\":\"next\",\"text\":\"test\",\"source\":\"conversation\"}"
-                input = T.encodeUtf8 (line <> "\n")
+                line =
+                  [aesonQQ|{"date":"2026-03-11","session":"abc","project":"repo","project_key":"k","tag":"next","text":"test","source":"conversation"}|]
+                input = strictJsonl [line]
               in
                 length (parseEventsJsonl input) @?= 1
         , testCase "round-trips with encode"
@@ -875,6 +891,155 @@ processTests =
                 parsed = parseEventsJsonl encoded
               in
                 parsed @?= [entry]
+        ]
+    , testGroup
+        "decideSynthesis"
+        [ testCase "empty entries → NoEvents"
+            $ decideSynthesis [] (Watermark 0)
+            @?= Left NoEvents
+        , testCase "empty entries with nonzero watermark → NoEvents"
+            $ decideSynthesis [] (Watermark 5)
+            @?= Left NoEvents
+        , testCase "watermark at total → UpToDate"
+            $ let
+                entries = [mkEventLogEntry (fromGregorian 2026 3 11) "s1" "decision" "x"]
+              in
+                case decideSynthesis entries (Watermark 1) of
+                  Left (UpToDate w cnt) -> do
+                    watermarkPosition w @?= 1
+                    cnt @?= 1
+                  other -> assertFailure $ "Expected UpToDate, got: " <> show other
+        , testCase "watermark 0 → full synthesis with all entries"
+            $ let
+                entries =
+                  [ mkEventLogEntry (fromGregorian 2026 3 11) "s1" "decision" "a"
+                  , mkEventLogEntry (fromGregorian 2026 3 12) "s2" "next" "b"
+                  ]
+              in
+                case decideSynthesis entries (Watermark 0) of
+                  Right SynthesisWork{..} -> do
+                    swIsIncremental @?= False
+                    length swNewEvents @?= 2
+                  other -> assertFailure $ "Expected Right, got: " <> show other
+        , testCase "watermark mid-stream → incremental with new entries"
+            $ let
+                entries =
+                  [ mkEventLogEntry (fromGregorian 2026 3 11) "s1" "decision" "a"
+                  , mkEventLogEntry (fromGregorian 2026 3 12) "s2" "next" "b"
+                  , mkEventLogEntry (fromGregorian 2026 3 13) "s3" "context" "c"
+                  ]
+              in
+                case decideSynthesis entries (Watermark 1) of
+                  Right SynthesisWork{..} -> do
+                    swIsIncremental @?= True
+                    length swNewEvents @?= 2
+                  other -> assertFailure $ "Expected Right, got: " <> show other
+        ]
+    , testGroup
+        "resolveContext"
+        [ testCase "incremental with previous status → uses new events and status"
+            $ let
+                allEntries =
+                  [ mkEventLogEntry (fromGregorian 2026 3 11) "s1" "decision" "a"
+                  , mkEventLogEntry (fromGregorian 2026 3 12) "s2" "next" "b"
+                  ]
+                newEntry = mkEventLogEntry (fromGregorian 2026 3 12) "s2" "next" "b"
+                work = SynthesisWork True [newEntry]
+                history = SynthesisHistory ["h1.md"] (Just "prior status")
+                ctx = resolveContext allEntries work history
+              in
+                do
+                  scIsIncremental ctx @?= True
+                  length (scEvents ctx) @?= 1
+                  scPreviousStatus ctx @?= "prior status"
+                  scHandoffFiles ctx @?= ["h1.md"]
+        , testCase "incremental without STATUS.md → falls back to full"
+            $ let
+                allEntries =
+                  [ mkEventLogEntry (fromGregorian 2026 3 11) "s1" "decision" "a"
+                  , mkEventLogEntry (fromGregorian 2026 3 12) "s2" "next" "b"
+                  ]
+                newEntry = mkEventLogEntry (fromGregorian 2026 3 12) "s2" "next" "b"
+                work = SynthesisWork True [newEntry]
+                history = SynthesisHistory [] Nothing
+                ctx = resolveContext allEntries work history
+              in
+                do
+                  scIsIncremental ctx @?= False
+                  length (scEvents ctx) @?= 2
+                  scPreviousStatus ctx @?= ""
+        , testCase "full synthesis ignores previous status"
+            $ let
+                allEntries = [mkEventLogEntry (fromGregorian 2026 3 11) "s1" "decision" "a"]
+                work = SynthesisWork False allEntries
+                history = SynthesisHistory ["h1.md"] (Just "old status")
+                ctx = resolveContext allEntries work history
+              in
+                do
+                  scIsIncremental ctx @?= False
+                  length (scEvents ctx) @?= 1
+                  scPreviousStatus ctx @?= ""
+        ]
+    , testGroup
+        "buildSynthesisInput"
+        [ testCase "includes project name"
+            $ let
+                ctx =
+                  SynthesisContext
+                    { scIsIncremental = False
+                    , scEvents = []
+                    , scPreviousStatus = ""
+                    , scHandoffFiles = []
+                    }
+              in
+                T.isPrefixOf "Project: my-project" (buildSynthesisInput "my-project" ctx) @?= True
+        , testCase "includes handoff listing"
+            $ let
+                ctx =
+                  SynthesisContext
+                    { scIsIncremental = False
+                    , scEvents = []
+                    , scPreviousStatus = ""
+                    , scHandoffFiles = ["a.md", "b.md"]
+                    }
+                result = buildSynthesisInput "p" ctx
+              in
+                do
+                  T.isInfixOf "handoffs/a.md" result @?= True
+                  T.isInfixOf "handoffs/b.md" result @?= True
+        , testCase "no handoffs shows placeholder"
+            $ let
+                ctx =
+                  SynthesisContext
+                    { scIsIncremental = False
+                    , scEvents = []
+                    , scPreviousStatus = ""
+                    , scHandoffFiles = []
+                    }
+              in
+                T.isInfixOf "No handoff files yet" (buildSynthesisInput "p" ctx) @?= True
+        , testCase "includes previous status when present"
+            $ let
+                ctx =
+                  SynthesisContext
+                    { scIsIncremental = True
+                    , scEvents = []
+                    , scPreviousStatus = "# Old Status"
+                    , scHandoffFiles = []
+                    }
+              in
+                T.isInfixOf "# Old Status" (buildSynthesisInput "p" ctx) @?= True
+        , testCase "empty previous status shows full-history message"
+            $ let
+                ctx =
+                  SynthesisContext
+                    { scIsIncremental = False
+                    , scEvents = []
+                    , scPreviousStatus = ""
+                    , scHandoffFiles = []
+                    }
+              in
+                T.isInfixOf "generate from full history" (buildSynthesisInput "p" ctx) @?= True
         ]
     ]
 
