@@ -9,9 +9,11 @@ module CCS.Project (
   stripDotGit,
   deriveName,
   deriveOutputSubpath,
+  dedup,
 ) where
 
 import RIO
+import RIO.List (nubBy, sortOn)
 import RIO.Map qualified as Map
 import RIO.Text qualified as T
 
@@ -20,7 +22,6 @@ import Control.Monad.Trans.Maybe (MaybeT (..), runMaybeT)
 -- Data.Text: RIO.Text does not re-export breakOn/breakOnEnd
 import Data.Text qualified as DT
 import RIO.FilePath (makeRelative)
-import RIO.List (sortOn)
 import System.Process.Typed (proc, readProcess)
 
 newtype ProjectKey = ProjectKey Text
@@ -168,3 +169,7 @@ gitCommand dir args = do
         <> " failed: "
         <> display errout
       pure Nothing
+
+dedup :: [Project] -> [Project]
+dedup =
+  nubBy (\a b -> projectKey a == projectKey b)

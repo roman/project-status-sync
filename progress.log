@@ -78,3 +78,4 @@
 2026-03-15 10:00 [df24b31e] — Phase 6.1: skip non-git projects — identifyProject returns Maybe, directoryFallback deleted, processSession checks before LLM calls
 2026-03-15 12:00 [83d3279d] — Phase 6.3: handoff dedup — generateHandoff prepends prior filenames to prompt, prompt instructs LLM to suppress redundant content
 2026-03-15 14:00 [736c7262] — Phase 6.2: batch-aware synthesis — processSession returns Maybe Project, AggregateResult generic, synthesis runs once per project after dedup
+2026-03-14 20:00 [1c4c700c] — Phase 6: add tests for gate pipeline (checkSignals, checkQuietPeriod), dedup, and runAggregation result collection (103 tests total)

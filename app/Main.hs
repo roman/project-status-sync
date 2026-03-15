@@ -7,7 +7,7 @@ import CCS.Aggregate (AggregateResult (..), runAggregation)
 import CCS.Event (EventSource (..), EventTag (..), SessionEvent (..), appendEvent)
 import CCS.Filter (filterTranscriptFile)
 import CCS.Process (ProcessConfig (..), generateStatusForProject, processSession)
-import CCS.Project (OrgMappings (..), Project (..), ProjectOverrides (..))
+import CCS.Project (OrgMappings (..), ProjectOverrides (..), dedup)
 import Prompts qualified
 import RIO.Map qualified as Map
 import RIO.Text qualified as T
@@ -41,7 +41,6 @@ import Options.Applicative (
   value,
   (<**>),
  )
-import RIO.List (nubBy)
 import RIO.Time (secondsToNominalDiffTime)
 
 -- System.Environment: RIO does not re-export lookupEnv
@@ -108,7 +107,7 @@ main = do
       case result of
         AggregatedSessions touchedProjects -> do
           let
-            uniqueProjects = dedup touchedProjects
+            uniqueProjects = dedup (catMaybes touchedProjects)
           logInfo $ "Processed " <> display (length touchedProjects) <> " session(s), " <> display (length uniqueProjects) <> " unique project(s)"
           forM_ uniqueProjects $ generateStatusForProject config
         QuietPeriodNotElapsed ->
@@ -186,10 +185,6 @@ resolvePrompt (Just path) _ = do
   pure (T.decodeUtf8With T.lenientDecode bs)
 resolvePrompt Nothing embedded =
   pure (T.decodeUtf8With T.lenientDecode embedded)
-
-dedup :: [Maybe Project] -> [Project]
-dedup =
-  nubBy (\a b -> projectKey a == projectKey b) . catMaybes
 
 versionOpt :: Parser (a -> a)
 versionOpt =

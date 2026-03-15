@@ -7,6 +7,8 @@ module CCS.Aggregate (
   withLockFile,
   consumeSignal,
   runAggregation,
+  checkSignals,
+  checkQuietPeriod,
 ) where
 
 import RIO
@@ -108,6 +110,15 @@ withLockFile lockPath action =
 consumeSignal :: MonadIO m => AvailabilitySignal -> m ()
 consumeSignal signal = liftIO $ removeFile (asSignalPath signal)
 
+checkSignals :: [AvailabilitySignal] -> Either (AggregateResult a) [AvailabilitySignal]
+checkSignals [] = Left NoSignalsFound
+checkSignals ss = Right ss
+
+checkQuietPeriod :: UTCTime -> NominalDiffTime -> [AvailabilitySignal] -> Either (AggregateResult a) [AvailabilitySignal]
+checkQuietPeriod now threshold signals
+  | isQuietPeriodElapsed now threshold signals = Right signals
+  | otherwise = Left QuietPeriodNotElapsed
+
 runAggregation
   :: (HasLogFunc env, Show a)
   => FilePath
@@ -126,13 +137,6 @@ runAggregation signalDir quietMinutes processOne = do
     Right readySignals ->
       acquireAndProcess readySignals
  where
-  checkSignals [] = Left NoSignalsFound
-  checkSignals ss = Right ss
-
-  checkQuietPeriod now threshold signals
-    | isQuietPeriodElapsed now threshold signals = Right signals
-    | otherwise = Left QuietPeriodNotElapsed
-
   acquireAndProcess signals = do
     let
       lockPath = signalDir </> ".aggregate.lock"

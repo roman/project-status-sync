@@ -33,6 +33,8 @@ import CCS.Aggregate (
   AggregateResult (..),
   AvailabilitySignal (..),
   SessionId (..),
+  checkQuietPeriod,
+  checkSignals,
   consumeSignal,
   discoverSignals,
   isQuietPeriodElapsed,
@@ -64,15 +66,18 @@ import CCS.Process (
  )
 import CCS.Project (
   OrgMappings (..),
+  Project (..),
   ProjectKey (..),
   ProjectName (..),
   ProjectOverrides (..),
+  dedup,
   deriveName,
   deriveOutputSubpath,
   normalizeRemoteUrl,
   stripDotGit,
  )
 import CCS.Signal (SignalPayload (..), writeSignal)
+import RIO.List (nub)
 import RIO.Time (NominalDiffTime, UTCTime (..), addUTCTime, fromGregorian, secondsToNominalDiffTime)
 
 main :: IO ()
@@ -87,6 +92,7 @@ tests =
     , projectTests
     , filterTests
     , aggregateTests
+    , dedupTests
     , processTests
     , propertyTests
     ]
@@ -464,6 +470,43 @@ aggregateTests =
             result @?= Just 99
         ]
     , testGroup
+        "gate pipeline"
+        [ testCase "checkSignals [] → Left NoSignalsFound"
+            $ checkSignals []
+            @?= (Left NoSignalsFound :: Either (AggregateResult ()) [AvailabilitySignal])
+        , testCase "checkSignals [signal] → Right [signal]"
+            $ let
+                s = mkSignal "s1" referenceTime
+              in
+                checkSignals [s] @?= (Right [s] :: Either (AggregateResult ()) [AvailabilitySignal])
+        , testCase "checkQuietPeriod with elapsed time → Right"
+            $ let
+                old = addUTCTime (-1800) referenceTime
+                signals = [mkSignal "s1" old]
+              in
+                checkQuietPeriod referenceTime twentyMinutes signals
+                  @?= (Right signals :: Either (AggregateResult ()) [AvailabilitySignal])
+        , testCase "checkQuietPeriod with recent signal → Left"
+            $ let
+                recent = addUTCTime (-300) referenceTime
+                signals = [mkSignal "s1" recent]
+              in
+                checkQuietPeriod referenceTime twentyMinutes signals
+                  @?= (Left QuietPeriodNotElapsed :: Either (AggregateResult ()) [AvailabilitySignal])
+        , testCase "composed: happy path passes through"
+            $ let
+                old = addUTCTime (-1800) referenceTime
+                signals = [mkSignal "s1" old]
+                result = checkSignals signals >>= checkQuietPeriod referenceTime twentyMinutes
+              in
+                result @?= (Right signals :: Either (AggregateResult ()) [AvailabilitySignal])
+        , testCase "composed: empty input short-circuits"
+            $ let
+                result = checkSignals [] >>= checkQuietPeriod referenceTime twentyMinutes
+              in
+                result @?= (Left NoSignalsFound :: Either (AggregateResult ()) [AvailabilitySignal])
+        ]
+    , testGroup
         "runAggregation"
         [ testCase "returns NoSignalsFound for empty dir" $ do
             tmpDir <- getTemporaryDirectory
@@ -471,6 +514,26 @@ aggregateTests =
             result <- runSimpleApp $ runAggregation dir twentyMinutes (\_ -> pure (Nothing :: Maybe ()))
             cleanup
             result @?= NoSignalsFound
+        , testCase "collects results from callback" $ do
+            tmpDir <- getTemporaryDirectory
+            (dir, cleanup) <- createTempSignalDir tmpDir
+            let
+              payload1 = SignalPayload "/tmp/t1.jsonl" "/tmp/proj"
+              payload2 = SignalPayload "/tmp/t2.jsonl" "/tmp/proj"
+            writeSignal (dir </> "session-aaa.available") payload1
+            writeSignal (dir </> "session-bbb.available") payload2
+            result <-
+              runSimpleApp
+                $ runAggregation dir (secondsToNominalDiffTime 0)
+                $ \signal ->
+                  let
+                    SessionId sid = asSessionId signal
+                  in
+                    pure ("processed-" <> sid)
+            cleanup
+            case result of
+              AggregatedSessions rs -> length rs @?= 2
+              other -> assertFailure $ "expected AggregatedSessions, got: " <> show other
         ]
     , testGroup
         "consumeSignal"
@@ -499,6 +562,45 @@ createTempSignalDir base = do
   let
     cleanup = removeDirectoryRecursive dir
   pure (dir, cleanup)
+
+-- ---------------------------------------------------------------------------
+-- Dedup tests
+-- ---------------------------------------------------------------------------
+
+mkProject :: Text -> Text -> Project
+mkProject key name =
+  Project
+    { projectKey = ProjectKey key
+    , projectName = ProjectName name
+    , projectPath = "/tmp/" <> T.unpack name
+    }
+
+dedupTests :: TestTree
+dedupTests =
+  testGroup
+    "dedup"
+    [ testCase "empty → empty"
+        $ dedup []
+        @?= []
+    , testCase "different keys preserved"
+        $ let
+            p1 = mkProject "github.com/user/repo1" "repo1"
+            p2 = mkProject "github.com/user/repo2" "repo2"
+          in
+            dedup [p1, p2] @?= [p1, p2]
+    , testCase "same key deduplicates (first wins)"
+        $ let
+            p1 = mkProject "github.com/user/repo" "repo-original"
+            p2 = mkProject "github.com/user/repo" "repo-duplicate"
+          in
+            dedup [p1, p2] @?= [p1]
+    , testCase "duplicates interspersed"
+        $ let
+            p1 = mkProject "github.com/user/repo1" "repo1"
+            p2 = mkProject "github.com/user/repo2" "repo2"
+          in
+            dedup [p1, p2, p1, p2] @?= [p1, p2]
+    ]
 
 -- ---------------------------------------------------------------------------
 -- Process tests
@@ -767,6 +869,19 @@ instance Arbitrary SessionEvent where
     eventSource <- arbitrary
     pure SessionEvent{..}
 
+instance Arbitrary ProjectKey where
+  arbitrary = ProjectKey <$> genNonEmptyText
+
+instance Arbitrary ProjectName where
+  arbitrary = ProjectName <$> genNonEmptyText
+
+instance Arbitrary Project where
+  arbitrary = do
+    projectKey <- arbitrary
+    projectName <- arbitrary
+    projectPath <- T.unpack <$> genNonEmptyText
+    pure Project{..}
+
 instance Arbitrary ContentBlock where
   arbitrary =
     oneof
@@ -795,7 +910,8 @@ propertyTests :: TestTree
 propertyTests =
   testGroup
     "Properties"
-    [ testGroup "normalizeRemoteUrl" normalizeRemoteUrlProps
+    [ testGroup "dedup" dedupProps
+    , testGroup "normalizeRemoteUrl" normalizeRemoteUrlProps
     , testGroup "stripDotGit" stripDotGitProps
     , testGroup "deriveName" deriveNameProps
     , testGroup "Event" eventProps
@@ -804,6 +920,18 @@ propertyTests =
     , testGroup "Process" processProps
     , testGroup "deriveOutputSubpath" deriveOutputSubpathProps
     ]
+
+dedupProps :: [TestTree]
+dedupProps =
+  [ testProperty "result has no duplicate projectKeys" $ \(projects :: [Project]) ->
+      let
+        result = dedup projects
+        keys = map projectKey result
+      in
+        nub keys === keys
+  , testProperty "idempotent" $ \(projects :: [Project]) ->
+      dedup projects === dedup (dedup projects)
+  ]
 
 normalizeRemoteUrlProps :: [TestTree]
 normalizeRemoteUrlProps =
