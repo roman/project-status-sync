@@ -9,6 +9,7 @@ import CCS.Filter (filterTranscriptFile)
 import CCS.Process (ProcessConfig (..), generateStatusForProject, processSession)
 import CCS.Project (OrgMappings (..), ProjectOverrides (..), dedup)
 import Prompts qualified
+import RIO.Directory (doesFileExist)
 import RIO.Map qualified as Map
 import RIO.Text qualified as T
 
@@ -73,6 +74,10 @@ main = do
   cmd <- execParser opts
   runSimpleApp $ case cmd of
     FilterCmd path -> do
+      exists <- doesFileExist path
+      unless exists $ do
+        logError $ "File not found: " <> fromString path
+        exitFailure
       result <- filterTranscriptFile path
       hPutBuilder stdout (getUtf8Builder (display result))
     RecordEventCmd tag txt source -> do
@@ -181,12 +186,15 @@ parseKeyValue s =
       _ -> Nothing
 
 resolvePrompt
-  :: MonadIO m
-  => Maybe FilePath
+  :: Maybe FilePath
   -> ByteString
-  -> m Text
+  -> RIO SimpleApp Text
 resolvePrompt (Just path) _ = do
-  bs <- liftIO $ readFileBinary path
+  exists <- doesFileExist path
+  unless exists $ do
+    logError $ "Prompt file not found: " <> fromString path
+    exitFailure
+  bs <- readFileBinary path
   pure (T.decodeUtf8With T.lenientDecode bs)
 resolvePrompt Nothing embedded =
   pure (T.decodeUtf8With T.lenientDecode embedded)

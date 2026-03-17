@@ -38,7 +38,11 @@ instance FromJSON SignalPayload where
       .: "cwd"
 
 readSignal :: MonadIO m => FilePath -> m (Either String SignalPayload)
-readSignal path = liftIO $ Aeson.eitherDecodeStrict' <$> BS.readFile path
+readSignal path = do
+  result <- liftIO $ tryIO (BS.readFile path)
+  case result of
+    Left e -> pure $ Left (displayException e)
+    Right bs -> pure $ Aeson.eitherDecodeStrict' bs
 
 writeSignal :: MonadIO m => FilePath -> SignalPayload -> m ()
 writeSignal path payload = liftIO $ do

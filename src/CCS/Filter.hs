@@ -11,6 +11,7 @@ module CCS.Filter (
 
 import RIO
 import RIO.ByteString.Lazy qualified as LBS
+import RIO.Directory (doesFileExist)
 import RIO.Text qualified as T
 
 import Data.Aeson (FromJSON (..), Value (..), decode, withObject, (.:))
@@ -65,7 +66,11 @@ filterTranscript =
 
 -- | Read and filter a transcript file.
 filterTranscriptFile :: MonadIO m => FilePath -> m Text
-filterTranscriptFile path = filterTranscript <$> liftIO (LBS.readFile path)
+filterTranscriptFile path = do
+  exists <- doesFileExist path
+  if exists
+    then filterTranscript <$> liftIO (LBS.readFile path)
+    else pure ""
 
 formatEntry :: SessionEntry -> Maybe Text
 formatEntry SessionEntry{entryType, entryContent}

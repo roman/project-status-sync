@@ -508,7 +508,8 @@ generateStatusForProject config@ProcessConfig{..} project = do
     ProjectName pnameText = projectName project
     paths = deriveSynthesisPaths config project
 
-  eventsBytes <- readFileBinary (spEventsFile paths)
+  eventsExists <- doesFileExist (spEventsFile paths)
+  eventsBytes <- if eventsExists then readFileBinary (spEventsFile paths) else pure ""
   let
     allEntries = parseEventsJsonl eventsBytes
     totalCount = length allEntries

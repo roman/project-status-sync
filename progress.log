@@ -82,3 +82,4 @@
 2026-03-15 05:23 [ac91881e] — Phase 6.4: incremental synthesis — watermark cursor, formatEventsCompact, --full-resync flag, bug fixes from code critic (115 tests pass)
 2026-03-14 22:00 [635a9395] — Phase 6.4: refactor generateStatusForProject into pure gate pipeline (decideSynthesis, resolveContext, buildSynthesisInput), rename Cursor→Watermark, add 13 unit tests, migrate test JSON to aeson-qq (128 tests pass)
 2026-03-15 16:00 [7a12ee6e] — Phase 6.5: service runtime hardening — TimeoutStartSec 30min, --max-signals 20 default, Nix module wiring (128 tests pass)
+2026-03-16 12:00 [95bc145e] — Fix: guard file IO operations against missing files (Filter, Signal, Process, Main)
