@@ -45,6 +45,15 @@ let
     exec ${lib.escapeShellArgs aggregateArgs}
   '';
 
+  servicePath = lib.concatStringsSep ":" (
+    cfg.extraPath
+    ++ [
+      "${config.home.profileDirectory}/bin"
+      "/usr/bin"
+      "/bin"
+    ]
+  );
+
   isLinux = pkgs.stdenv.isLinux;
   isDarwin = pkgs.stdenv.isDarwin;
 in
@@ -120,6 +129,16 @@ in
       default = 20;
       description = "Maximum signals to process per aggregation run.";
     };
+
+    extraPath = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      description = "Extra directories to prepend to PATH in the service environment.";
+      example = [
+        "/opt/homebrew/bin"
+        "/usr/local/bin"
+      ];
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -149,7 +168,7 @@ in
         TimeoutStartSec = "30min";
         ExecStart = toString aggregateScript;
         Environment = [
-          "PATH=${config.home.profileDirectory}/bin:/usr/bin:/bin"
+          "PATH=${servicePath}"
           "HOME=${config.home.homeDirectory}"
         ];
       };
@@ -170,7 +189,7 @@ in
         ProgramArguments = aggregateArgs;
         StartInterval = cfg.intervalMinutes * 60;
         EnvironmentVariables = {
-          PATH = "${config.home.profileDirectory}/bin:/usr/bin:/bin";
+          PATH = servicePath;
           HOME = config.home.homeDirectory;
         };
         StandardOutPath = "/tmp/project-status-sync.log";
