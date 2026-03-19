@@ -29,16 +29,17 @@
 | 2a | Tooling: pre-filter, record-event, aggregation | **DONE** | Infra, Phase 1 (signal format) |
 | 2b | Prompts: extraction, handoff, progress, synthesis | **DONE** | Infra |
 | 2c | Integration: wire everything together | **DONE** (2c.2 verified 2026-03-08, code fence stripping TODO) | 1, 2a, 2b |
-| 3 | Status & Handoffs: generate outputs | **CODE COMPLETE** (3.4 awaits human quality validation) | 2c |
+| 3 | Status & Handoffs: generate outputs | **DONE** (3.4 quality validated 2026-03-19) | 2c |
 | 4 | Retrieval: context injection (optional) | DEFERRED | 3 |
 | 5 | Archival: manage EVENTS.jsonl growth | DEFERRED | 4 |
-| S.PS | Project Status Sync: periodic service module | IN PROGRESS (S.PS.1-4,6 done) | S.PS.5 quality portion blocked by 3.4 |
+| S.PS | Project Status Sync: periodic service module | IN PROGRESS (S.PS.1-4,6 done; S.PS.5 quality unblocked by 3.4) | — |
 | 6 | Production audit fixes | **DONE** | — |
 | 6.1 | Skip non-git projects | **DONE** | — |
 | 6.2 | Batch-aware synthesis | **DONE** | — |
 | 6.3 | Handoff dedup via prior context | **DONE** | — |
 | 6.4 | Incremental synthesis with watermark cursor | **DONE** | — |
 | 6.5 | Service runtime hardening | **DONE** | — |
+| 7 | Output hygiene | NOT STARTED | — |
 
 ## Phase Diagram
 
@@ -541,7 +542,7 @@ Wire all prompts to aggregation job in order:
 - [x] 3.1: Processing flow integration (handoff + progress wired; synthesis deferred to 3.3)
 - [x] 3.2: Handoff output (writes to `{project}/handoffs/{date}-{prefix}-{topic}.md`)
 - [x] 3.3: STATUS.md output (synthesis prompt wired into processSession, writes `{project}/STATUS.md`)
-- [ ] 3.4: Quality validation (requires real pipeline run + cold read after 1 week — human-verified)
+- [x] 3.4: Quality validation (2026-03-19 — assessed cell-controller outputs, 4 issues → Phase 7)
 
 See:
 - `notes/handoffs/2026-03-08-processing-flow-integration.md`
@@ -940,3 +941,74 @@ See:
 - `notes/handoffs/2026-03-15-phase-6.4-incremental-synthesis.md`
 - `notes/handoffs/2026-03-15-phase-6.5-service-runtime-hardening.md`
 - `notes/handoffs/2026-03-14-phase-6.4-refactor-synthesis.md`
+
+---
+
+## Phase 7: Output Hygiene
+
+**Goal**: Fix output quality issues discovered during Phase 3.4 quality validation of
+cell-controller session outputs.
+
+**Audit findings** (2026-03-19): Assessed `~/Documents/PARA/03 Resources/Sessions/cell-controller/`
+outputs (STATUS.md, EVENTS.jsonl, progress.log, 3 handoffs from 2 sessions). Content quality
+is good — the system extracts the right information and STATUS.md synthesis is useful for
+session bootstrapping. However, output hygiene has four issues:
+
+| Issue | Severity | Root Cause |
+|-------|----------|------------|
+| npm/pnpm noise in all output files | High | `readProcess` captures all stdout from `claude` CLI, including Node.js lifecycle messages |
+| LLM commentary leaks into STATUS.md | High | Synthesis prompt allows preamble; `stripCodeFences` only removes fence markers, not surrounding text |
+| Duplicate events across re-processed sessions | Medium | `appendJsonLine` appends unconditionally; no dedup by session+tag+text |
+| progress.log inconsistent formatting | Low | `stripCodeFences` not applied to progress path; prompt doesn't forbid code fences |
+
+### 7.1: Strip CLI noise from LLM output
+
+- `runLLMPrompt` (`src/CCS/Process.hs`) captures stdout via `readProcess`
+- The `claude` CLI wrapper emits `Cleaning up old packages...` / `up to date in Nms` on startup
+- Fix: strip all lines before the first line that looks like expected output (JSON `{` for
+  extraction, `#` for markdown, or the progress entry format)
+- Affects all output paths: extraction, handoff, progress, synthesis
+- Files: `src/CCS/Process.hs`
+
+### 7.2: Prevent LLM commentary in STATUS.md
+
+Two fixes needed:
+
+**7.2a: Prompt fix** — Add explicit instruction to `prompts/status-synthesis.md`:
+"Output ONLY the markdown document. Do not include preamble, commentary, or explanations
+outside the document."
+
+**7.2b: Extraction fix** — Improve `stripCodeFences` (`src/CCS/Process.hs:614-627`) to
+extract content *between* fences and discard everything outside them. Current implementation
+only removes the fence delimiters but keeps surrounding text.
+
+- Files: `prompts/status-synthesis.md`, `src/CCS/Process.hs`
+
+### 7.3: Event deduplication — review proposal
+
+- Proposal: `notes/proposals/2026-03-19-event-deduplication.md`
+- Review with human, decide on approach (A: hash dedup, B: session replace, C: read-time)
+- Proposal recommends Option B (session-keyed replacement)
+- Implementation blocked until proposal is APPROVED
+
+### 7.4: Normalize progress.log entries
+
+- Apply `stripCodeFences` (or a simpler strip) to progress entry output before writing
+- Add "Do not wrap output in code fences" to `prompts/progress-entry.md`
+- Both fixes are cheap; do both for defense in depth
+- Files: `src/CCS/Process.hs`, `prompts/progress-entry.md`
+
+### Gates
+
+- [ ] Output files contain no npm/pnpm lifecycle noise
+- [ ] STATUS.md contains only the markdown document, no LLM commentary
+- [ ] Event dedup proposal reviewed and decision made
+- [ ] progress.log entries are consistently formatted (no code fences)
+- [ ] Re-run against cell-controller sessions produces clean output
+
+### Progress
+
+- [ ] 7.1: Strip CLI noise from LLM output
+- [ ] 7.2: Prevent LLM commentary in STATUS.md
+- [ ] 7.3: Event deduplication — review proposal
+- [ ] 7.4: Normalize progress.log entries
