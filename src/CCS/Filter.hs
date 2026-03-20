@@ -1,6 +1,7 @@
 module CCS.Filter (
   filterTranscript,
   filterTranscriptFile,
+  filterTranscriptFrom,
   SessionEntry (..),
   MessageContent (..),
   ContentBlock (..),
@@ -55,14 +56,28 @@ parseContentBlock = withObject "ContentBlock" $ \o -> do
     "thinking" -> Just . ThinkingBlock <$> o .: "thinking"
     _ -> pure Nothing
 
+-- | Filter a transcript JSONL bytestring starting from a line offset.
+-- Drops the first @skipLines@ lines (already processed), filters and formats
+-- the rest. Returns the formatted text and the total line count of the input
+-- (for updating the extraction cursor).
+filterTranscriptFrom :: Int -> LBS.ByteString -> (Text, Int)
+filterTranscriptFrom skipLines input =
+  let
+    allLines = LBS.split 0x0A input
+    totalLines = length allLines
+    newLines = drop skipLines allLines
+    filtered =
+      T.intercalate "\n"
+        . mapMaybe formatEntry
+        . mapMaybe decode
+        $ newLines
+  in
+    (filtered, totalLines)
+
 -- | Filter a transcript JSONL bytestring to plain text with role labels.
--- Selects only user/assistant messages and extracts text and thinking content.
+-- Convenience wrapper over 'filterTranscriptFrom' with no offset.
 filterTranscript :: LBS.ByteString -> Text
-filterTranscript =
-  T.intercalate "\n"
-    . mapMaybe formatEntry
-    . mapMaybe decode
-    . LBS.split 0x0A
+filterTranscript = fst . filterTranscriptFrom 0
 
 -- | Read and filter a transcript file.
 filterTranscriptFile :: MonadIO m => FilePath -> m Text

@@ -1038,7 +1038,7 @@ only removes the fence delimiters but keeps surrounding text.
 - [ ] 7.2: Prevent LLM commentary in STATUS.md
 - [x] 7.3: Event dedup proposal reviewed — incremental extraction APPROVED
 - [x] 7.3a: `ExtractionCursor` newtype + cursor file I/O
-- [ ] 7.3b: Transcript slicing in `CCS.Filter`
+- [x] 7.3b: Transcript slicing in `CCS.Filter`
 - [ ] 7.3c: Wire into `processSession`
 - [ ] 7.3d: Tests
 - [ ] 7.4: Normalize progress.log entries

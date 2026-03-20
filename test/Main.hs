@@ -52,6 +52,7 @@ import CCS.Filter (
   MessageContent (..),
   SessionEntry (..),
   filterTranscript,
+  filterTranscriptFrom,
   formatBlock,
   formatContent,
   formatEntry,
@@ -105,6 +106,7 @@ tests =
     , eventTests
     , projectTests
     , filterTests
+    , filterFromTests
     , aggregateTests
     , dedupTests
     , processTests
@@ -388,6 +390,77 @@ filterTests =
     , testCase "empty input produces empty output"
         $ filterTranscript ""
         @?= ""
+    ]
+
+-- ---------------------------------------------------------------------------
+-- FilterFrom tests (transcript slicing with cursor)
+-- ---------------------------------------------------------------------------
+
+filterFromTests :: TestTree
+filterFromTests =
+  testGroup
+    "FilterFrom"
+    [ testCase "cursor=0 processes full transcript" $ do
+        let
+          input =
+            jsonl
+              [ [aesonQQ| { "type": "user", "message": { "content": "hello" } } |]
+              , [aesonQQ| { "type": "assistant", "message": { "content": "world" } } |]
+              ]
+          (text, _cursor) = filterTranscriptFrom 0 input
+        text @?= "USER:\nhello\n\nASSISTANT:\nworld\n"
+    , testCase "cursor=0 matches filterTranscript" $ do
+        let
+          input =
+            jsonl
+              [ [aesonQQ| { "type": "user", "message": { "content": "hello" } } |]
+              , [aesonQQ| { "type": "assistant", "message": { "content": "world" } } |]
+              ]
+          (text, _cursor) = filterTranscriptFrom 0 input
+        text @?= filterTranscript input
+    , testCase "cursor=N skips first N lines" $ do
+        let
+          input =
+            jsonl
+              [ [aesonQQ| { "type": "user", "message": { "content": "old msg" } } |]
+              , [aesonQQ| { "type": "assistant", "message": { "content": "old reply" } } |]
+              , [aesonQQ| { "type": "user", "message": { "content": "new msg" } } |]
+              ]
+          (text, _cursor) = filterTranscriptFrom 2 input
+        text @?= "USER:\nnew msg\n"
+    , testCase "cursor returns total line count" $ do
+        let
+          input =
+            jsonl
+              [ [aesonQQ| { "type": "user", "message": { "content": "a" } } |]
+              , [aesonQQ| { "type": "assistant", "message": { "content": "b" } } |]
+              , [aesonQQ| { "type": "user", "message": { "content": "c" } } |]
+              ]
+          (_text, cursor) = filterTranscriptFrom 0 input
+        cursor @?= 3
+    , testCase "cursor after partial skip equals total" $ do
+        let
+          input =
+            jsonl
+              [ [aesonQQ| { "type": "user", "message": { "content": "a" } } |]
+              , [aesonQQ| { "type": "assistant", "message": { "content": "b" } } |]
+              ]
+          (_text, cursor) = filterTranscriptFrom 1 input
+        cursor @?= 2
+    , testCase "cursor past end produces empty text" $ do
+        let
+          input =
+            jsonl
+              [ [aesonQQ| { "type": "user", "message": { "content": "hello" } } |]
+              ]
+          (text, cursor) = filterTranscriptFrom 100 input
+        text @?= ""
+        cursor @?= 1
+    , testCase "empty input returns zero cursor" $ do
+        let
+          (text, cursor) = filterTranscriptFrom 0 ""
+        text @?= ""
+        cursor @?= 0
     ]
 
 -- ---------------------------------------------------------------------------
