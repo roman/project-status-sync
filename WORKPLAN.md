@@ -1034,7 +1034,7 @@ only removes the fence delimiters but keeps surrounding text.
 
 ### Progress
 
-- [ ] 7.1: Strip CLI noise from LLM output
+- [x] 7.1: Strip CLI noise from LLM output
 - [ ] 7.2: Prevent LLM commentary in STATUS.md
 - [x] 7.3: Event dedup proposal reviewed — incremental extraction APPROVED
 - [x] 7.3a: `ExtractionCursor` newtype + cursor file I/O
@@ -1042,3 +1042,6 @@ only removes the fence delimiters but keeps surrounding text.
 - [ ] 7.3c: Wire into `processSession`
 - [ ] 7.3d: Tests
 - [ ] 7.4: Normalize progress.log entries
+
+See:
+- `notes/handoffs/2026-03-20-phase-7.1-strip-cli-noise.md`

@@ -19,12 +19,14 @@ module CCS.Process (
   readExtractionCursorFile,
   resolveContext,
   runLLMPrompt,
+  stripCLINoise,
   stripCodeFences,
   stripTopicLine,
   writeExtractionCursor,
 ) where
 
 import RIO
+import RIO.Char (isDigit)
 import RIO.List (sort)
 import RIO.Map qualified as Map
 import RIO.Text qualified as T
@@ -203,7 +205,7 @@ runLLMPrompt ProcessConfig{..} promptText inputText = do
       logError $ "LLM command failed (exit " <> display code <> ")"
       unless (T.null err) $ logError $ "stderr: " <> display err
       pure Nothing
-    ExitSuccess -> pure (Just (stripCodeFences out))
+    ExitSuccess -> pure (Just (stripCodeFences (stripCLINoise out)))
 
 processSession
   :: HasLogFunc env
@@ -635,6 +637,28 @@ withEvents :: HasLogFunc env => [SessionEvent] -> (Text, Text) -> RIO env () -> 
 withEvents events (label, sid) action
   | null events = logDebug $ "No events for " <> display label <> ", skipping session " <> display sid
   | otherwise = action
+
+-- | Drop leading lines of CLI noise (npm/pnpm lifecycle messages) that
+-- the @claude@ wrapper may emit before actual LLM output. The first line
+-- whose stripped content starts with a recognized output marker (@[@, @#@,
+-- @{@, a digit, or @TOPIC:@) is treated as the start of real output.
+-- Returns the original text unchanged if no marker is found.
+stripCLINoise :: Text -> Text
+stripCLINoise input =
+  let
+    lns = T.lines input
+  in
+    case dropWhile (not . isOutputLine) lns of
+      [] -> input
+      kept -> T.unlines kept
+ where
+  isOutputLine line =
+    let
+      stripped = T.strip line
+    in
+      case T.uncons stripped of
+        Nothing -> False
+        Just (c, _) -> c == '[' || c == '#' || c == '{' || isDigit c || "TOPIC:" `T.isPrefixOf` stripped
 
 stripTopicLine :: Text -> Text
 stripTopicLine =

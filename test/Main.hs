@@ -73,6 +73,7 @@ import CCS.Process (
   parseTopicSlug,
   readExtractionCursorFile,
   resolveContext,
+  stripCLINoise,
   stripCodeFences,
   stripTopicLine,
   writeExtractionCursor,
@@ -789,6 +790,36 @@ processTests =
         , testCase "handles TOPIC: with leading whitespace"
             $ stripTopicLine "content\n  TOPIC: slug\n"
             @?= "content\n"
+        ]
+    , testGroup
+        "stripCLINoise"
+        [ testCase "strips npm noise before extraction output"
+            $ stripCLINoise "Cleaning up old packages...\nup to date in 123ms\n[decision] Use RIO for prelude\n[context] Project uses Haskell\n"
+            @?= "[decision] Use RIO for prelude\n[context] Project uses Haskell\n"
+        , testCase "strips noise before markdown header"
+            $ stripCLINoise "npm warn deprecated pkg@1.0\n# Status Report\nAll good\n"
+            @?= "# Status Report\nAll good\n"
+        , testCase "strips noise before JSON output"
+            $ stripCLINoise "pnpm: up to date\n{\"tag\":\"decision\"}\n"
+            @?= "{\"tag\":\"decision\"}\n"
+        , testCase "strips noise before progress entry (digit start)"
+            $ stripCLINoise "added 5 packages in 2s\n2026-03-19 11:19 [ab279e9d] — Phase 7: output hygiene\n"
+            @?= "2026-03-19 11:19 [ab279e9d] — Phase 7: output hygiene\n"
+        , testCase "strips noise before TOPIC: line"
+            $ stripCLINoise "up to date in 50ms\nTOPIC: session-work\n# Handoff\nContent here\n"
+            @?= "TOPIC: session-work\n# Handoff\nContent here\n"
+        , testCase "preserves clean output unchanged"
+            $ stripCLINoise "# Status Report\nAll good\n"
+            @?= "# Status Report\nAll good\n"
+        , testCase "preserves extraction output unchanged"
+            $ stripCLINoise "[decision] foo\n[context] bar\n"
+            @?= "[decision] foo\n[context] bar\n"
+        , testCase "returns original when no output markers found"
+            $ stripCLINoise "some random text\nno markers here\n"
+            @?= "some random text\nno markers here\n"
+        , testCase "handles empty input"
+            $ stripCLINoise ""
+            @?= ""
         ]
     , testGroup
         "stripCodeFences"
