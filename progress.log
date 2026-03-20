@@ -87,3 +87,4 @@
 2026-03-20 05:32 [897f5bc2] — Phase 7.3a: ExtractionCursor newtype and I/O, 8 tests added
 2026-03-20 12:00 [897f5bc2] — Phase 7.1: strip CLI noise from LLM output — stripCLINoise drops npm/pnpm lines before first output marker (145 tests pass)
 2026-03-20 14:00 [76baf3e8] — Phase 7.3b: transcript slicing — filterTranscriptFrom drops already-processed lines, returns cursor for incremental extraction (152 tests pass)
+2026-03-20 16:00 [aee280ce] — Phase 7.3c: wire extraction cursor into processSession — map-based cursor I/O, cursor save on empty-filtered path (151 tests pass)

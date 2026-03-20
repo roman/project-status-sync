@@ -72,12 +72,12 @@ import CCS.Process (
   parseEventsJsonl,
   parseExtractionOutput,
   parseTopicSlug,
-  readExtractionCursorFile,
+  readExtractionCursors,
   resolveContext,
   stripCLINoise,
   stripCodeFences,
   stripTopicLine,
-  writeExtractionCursor,
+  writeExtractionCursors,
  )
 import CCS.Project (
   OrgMappings (..),
@@ -1156,58 +1156,57 @@ processTests =
         , testCase "cursor equality"
             $ ExtractionCursor 10
             @?= ExtractionCursor 10
-        , testCase "cursor round-trip: write and read"
+        , testCase "map round-trip: write and read"
             $ do
               tmpDir <- getTemporaryDirectory
               let
-                cursorFile = tmpDir </> "test-extraction-cursor"
-              writeExtractionCursor cursorFile (ExtractionCursor 42)
-              mCursor <- readExtractionCursorFile cursorFile
+                cursorFile = tmpDir </> "test-extraction-cursors.json"
+                cursors =
+                  Map.fromList
+                    [ (SessionId "session-abc", ExtractionCursor 42)
+                    , (SessionId "session-def", ExtractionCursor 100)
+                    ]
+              writeExtractionCursors cursorFile cursors
+              result <- readExtractionCursors cursorFile
               removeFile cursorFile
-              mCursor @?= Just (ExtractionCursor 42)
-        , testCase "read returns Nothing for missing file"
+              result @?= cursors
+        , testCase "read returns empty map for missing file"
             $ do
               tmpDir <- getTemporaryDirectory
               let
-                cursorFile = tmpDir </> "nonexistent-cursor"
-              mCursor <- readExtractionCursorFile cursorFile
-              mCursor @?= Nothing
-        , testCase "read returns Nothing for invalid (non-numeric) content"
+                cursorFile = tmpDir </> "nonexistent-cursors.json"
+              result <- readExtractionCursors cursorFile
+              result @?= Map.empty
+        , testCase "read returns empty map for invalid JSON"
             $ do
               tmpDir <- getTemporaryDirectory
               let
-                cursorFile = tmpDir </> "invalid-cursor"
-              writeFileBinary cursorFile "not a number\n"
-              mCursor <- readExtractionCursorFile cursorFile
+                cursorFile = tmpDir </> "invalid-cursors.json"
+              writeFileBinary cursorFile "not valid json"
+              result <- readExtractionCursors cursorFile
               removeFile cursorFile
-              mCursor @?= Nothing
-        , testCase "read returns Nothing for negative value"
+              result @?= Map.empty
+        , testCase "read filters negative cursor values"
             $ do
               tmpDir <- getTemporaryDirectory
               let
-                cursorFile = tmpDir </> "negative-cursor"
-              writeFileBinary cursorFile "-5\n"
-              mCursor <- readExtractionCursorFile cursorFile
+                cursorFile = tmpDir </> "negative-cursors.json"
+              writeFileBinary cursorFile "{\"good\":42,\"bad\":-5}"
+              result <- readExtractionCursors cursorFile
               removeFile cursorFile
-              mCursor @?= Nothing
-        , testCase "read handles whitespace around value"
+              result @?= Map.fromList [(SessionId "good", ExtractionCursor 42)]
+        , testCase "write produces valid JSON"
             $ do
               tmpDir <- getTemporaryDirectory
               let
-                cursorFile = tmpDir </> "whitespace-cursor"
-              writeFileBinary cursorFile "  123  \n"
-              mCursor <- readExtractionCursorFile cursorFile
-              removeFile cursorFile
-              mCursor @?= Just (ExtractionCursor 123)
-        , testCase "write includes newline"
-            $ do
-              tmpDir <- getTemporaryDirectory
-              let
-                cursorFile = tmpDir </> "newline-cursor"
-              writeExtractionCursor cursorFile (ExtractionCursor 7)
+                cursorFile = tmpDir </> "json-cursors.json"
+                cursors = Map.fromList [(SessionId "s1", ExtractionCursor 7)]
+              writeExtractionCursors cursorFile cursors
               content <- readFileBinary cursorFile
               removeFile cursorFile
-              T.decodeUtf8With T.lenientDecode content @?= "7\n"
+              let
+                decoded = decode (fromStrictBytes content) :: Maybe (Map Text Int)
+              decoded @?= Just (Map.fromList [("s1", 7)])
         ]
     ]
 

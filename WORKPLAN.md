@@ -1039,9 +1039,10 @@ only removes the fence delimiters but keeps surrounding text.
 - [x] 7.3: Event dedup proposal reviewed — incremental extraction APPROVED
 - [x] 7.3a: `ExtractionCursor` newtype + cursor file I/O
 - [x] 7.3b: Transcript slicing in `CCS.Filter`
-- [ ] 7.3c: Wire into `processSession`
+- [x] 7.3c: Wire into `processSession`
 - [ ] 7.3d: Tests
 - [ ] 7.4: Normalize progress.log entries
 
 See:
 - `notes/handoffs/2026-03-20-phase-7.1-strip-cli-noise.md`
+- `notes/handoffs/2026-03-20-phase-7.3c-cursor-wiring.md`

@@ -16,13 +16,13 @@ module CCS.Process (
   parseExtractionOutput,
   parseTopicSlug,
   processSession,
-  readExtractionCursorFile,
+  readExtractionCursors,
   resolveContext,
   runLLMPrompt,
   stripCLINoise,
   stripCodeFences,
   stripTopicLine,
-  writeExtractionCursor,
+  writeExtractionCursors,
 ) where
 
 import RIO
@@ -36,10 +36,11 @@ import Data.Text qualified as DT
 
 import CCS.Aggregate (AvailabilitySignal (..), SessionId (..))
 import CCS.Event (EventSource (..), EventTag (..), SessionEvent (..), appendJsonLine)
-import CCS.Filter (filterTranscriptFile)
+import CCS.Filter (filterTranscriptFrom)
 import CCS.Project (OrgMappings (..), Project (..), ProjectKey (..), ProjectName (..), ProjectOverrides (..), deriveOutputSubpath, identifyProject)
-import Data.Aeson (FromJSON (..), ToJSON (..), decodeStrict', object, withObject, (.:), (.=))
+import Data.Aeson (FromJSON (..), ToJSON (..), decodeStrict', encode, object, withObject, (.:), (.=))
 import RIO.ByteString qualified as BS
+import RIO.ByteString.Lazy qualified as LBS
 
 import RIO.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist, listDirectory)
 import RIO.FilePath ((</>))
@@ -222,12 +223,35 @@ processSession config@ProcessConfig{..} signal = do
       logInfo $ "Skipping non-git session " <> display sid
       pure Nothing
     Just project -> do
+      let
+        projectDir = pcOutputDir </> deriveOutputSubpath (projectKey project) pcOrgMappings pcProjectOverrides
+        cursorFile = projectDir </> ".extraction-cursors.json"
+
+      cursorMap <- readExtractionCursors cursorFile
+      let
+        cursorPos = maybe 0 cursorLineCount (Map.lookup (asSessionId signal) cursorMap)
+
       logInfo $ "Filtering transcript: " <> fromString (asTranscriptPath signal)
-      filtered <- filterTranscriptFile (asTranscriptPath signal)
+      transcriptExists <- doesFileExist (asTranscriptPath signal)
+      rawBytes <-
+        if transcriptExists
+          then liftIO (LBS.readFile (asTranscriptPath signal))
+          else pure LBS.empty
+      let
+        (filtered, newLineCount) = filterTranscriptFrom cursorPos rawBytes
+
+      let
+        saveCursor = do
+          createDirectoryIfMissing True projectDir
+          let
+            updatedMap = Map.insert (asSessionId signal) (ExtractionCursor newLineCount) cursorMap
+          writeExtractionCursors cursorFile updatedMap
 
       if T.null filtered
         then do
-          logWarn $ "Empty transcript after filtering for session " <> display sid
+          when (newLineCount > cursorPos) $ do
+            logInfo $ "Advancing cursor past non-extractable lines for session " <> display sid
+            saveCursor
           pure (Just project)
         else do
           logInfo $ "Running extraction for session " <> display sid
@@ -250,7 +274,6 @@ processSession config@ProcessConfig{..} signal = do
                   , eleProjectName = projectName project
                   , eleEvent = event
                   }
-              projectDir = pcOutputDir </> deriveOutputSubpath (projectKey project) pcOrgMappings pcProjectOverrides
               eventsFile = projectDir </> "EVENTS.jsonl"
 
             createDirectoryIfMissing True projectDir
@@ -258,6 +281,8 @@ processSession config@ProcessConfig{..} signal = do
             let
               entries = map mkEntry events
             mapM_ (appendJsonLine eventsFile) entries
+
+            saveCursor
 
             generateHandoff config signal events today projectDir
             generateProgressEntry config signal events now projectDir
@@ -606,26 +631,38 @@ writeCursor :: MonadIO m => FilePath -> Int -> m ()
 writeCursor path count =
   writeFileBinary path (T.encodeUtf8 (T.pack (show count) <> "\n"))
 
--- | Read extraction cursor from disk. Returns 'Nothing' when the file is
--- absent, unparseable, or contains a negative value. On miss, falls back
--- to 'ExtractionCursor 0' (full transcript processing) in the caller.
-readExtractionCursorFile :: MonadIO m => FilePath -> m (Maybe ExtractionCursor)
-readExtractionCursorFile path = do
+-- | Read extraction cursor map from a JSON file. Returns an empty map
+-- when the file is missing or contains invalid JSON. Negative cursor
+-- values are filtered out during parsing.
+readExtractionCursors :: MonadIO m => FilePath -> m (Map SessionId ExtractionCursor)
+readExtractionCursors path = do
   exists <- doesFileExist path
   if not exists
-    then pure Nothing
+    then pure Map.empty
     else do
       bs <- readFileBinary path
-      let
-        txt = T.strip $ T.decodeUtf8With T.lenientDecode bs
-      case readMaybe (T.unpack txt) of
-        Just n | n >= 0 -> pure (Just (ExtractionCursor n))
-        _ -> pure Nothing
+      case decodeStrict' bs :: Maybe (Map Text Int) of
+        Nothing -> pure Map.empty
+        Just rawMap ->
+          pure
+            $ Map.fromList
+              [ (SessionId k, ExtractionCursor v)
+              | (k, v) <- Map.toList rawMap
+              , v >= 0
+              ]
 
--- | Persist the extraction cursor position after successful extraction.
-writeExtractionCursor :: MonadIO m => FilePath -> ExtractionCursor -> m ()
-writeExtractionCursor path (ExtractionCursor count) =
-  writeFileBinary path (T.encodeUtf8 (T.pack (show count) <> "\n"))
+-- | Persist the extraction cursor map to disk as JSON.
+writeExtractionCursors :: MonadIO m => FilePath -> Map SessionId ExtractionCursor -> m ()
+writeExtractionCursors path cursors =
+  let
+    rawMap :: Map Text Int
+    rawMap =
+      Map.fromList
+        [ (sid, cursorLineCount c)
+        | (SessionId sid, c) <- Map.toList cursors
+        ]
+  in
+    writeFileBinary path (toStrictBytes (encode rawMap))
 
 withLLMResult :: (Utf8Builder -> RIO env ()) -> Maybe Text -> Utf8Builder -> (Text -> RIO env ()) -> RIO env ()
 withLLMResult logLevel mOut failMsg onSuccess =
