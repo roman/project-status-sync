@@ -2,6 +2,123 @@
 
 BAD/GOOD pairs for every convention in SKILL.md.
 
+## Refactor-First Workflow
+
+This example shows how to add retry logic to an existing `deployArtifact`
+function that already has 2 nesting levels.
+
+**Step 0: Read the existing function and count nesting.**
+
+```haskell
+-- EXISTING CODE — nesting analysis:
+deployArtifact env artifact = do
+  mTarget <- resolveTarget env artifact
+  case mTarget of                               -- level 1
+    Nothing -> pure DeployNoTarget
+    Just target -> do
+      uploaded <- uploadBundle target artifact
+      if not uploaded                            -- level 2
+        then do
+          logWarn "upload failed"
+          pure DeployUploadFailed
+        else do                                  -- level 2 (else branch)
+          mHealth <- checkHealth target
+          case mHealth of                        -- level 3 already!
+            Nothing -> pure DeployHealthTimeout
+            Just ok -> do
+              recordDeployment ...
+              pure (DeploySuccess ok)
+-- Verdict: already at 3 nesting levels. MUST refactor before adding anything.
+```
+
+**Step 1: Refactoring-only commit — flatten the function.**
+
+```haskell
+-- GOOD: extract a result type and a helper, flatten the do body
+data DeployResult
+  = DeployNoTarget
+  | DeployUploadFailed
+  | DeployHealthTimeout
+  | DeploySuccess !HealthStatus
+
+deployArtifact env artifact = do
+  mTarget <- resolveTarget env artifact
+  case mTarget of
+    Nothing -> pure DeployNoTarget
+    Just target -> runDeploy env target artifact
+
+runDeploy env target artifact = do
+  uploaded <- uploadBundle target artifact
+  if not uploaded
+    then pure DeployUploadFailed
+    else do
+      mHealth <- checkHealth target
+      case mHealth of
+        Nothing -> pure DeployHealthTimeout
+        Just ok -> do
+          recordDeployment env target ok
+          pure (DeploySuccess ok)
+-- This commit changes NO behavior. Tests pass. Commit it.
+```
+
+**Step 2: Separate commit — add retry logic to the now-flat function.**
+
+```haskell
+-- GOOD: retry logic slots in without adding nesting
+runDeploy env target artifact = do
+  retryState <- readRetryState (retryFile env target)
+  let
+    attemptsLeft = maxRetries env - rsAttemptCount retryState
+    gate = checkRetryBudget attemptsLeft >>= checkCooldown (rsLastAttempt retryState)
+  case gate of
+    Left result -> pure result
+    Right _ -> do
+      uploaded <- uploadBundle target artifact
+      if not uploaded
+        then do
+          writeRetryState (retryFile env target) (bumpAttempt retryState)
+          pure DeployUploadFailed
+        else do
+          mHealth <- checkHealth target
+          case mHealth of
+            Nothing -> pure DeployHealthTimeout
+            Just ok -> do
+              clearRetryState (retryFile env target)
+              recordDeployment env target ok
+              pure (DeploySuccess ok)
+-- New logic added without increasing nesting depth.
+```
+
+**BAD: skipping step 1 — adding retry logic directly to the nested function.**
+
+```haskell
+-- BAD: "I'll just add the retry check at the top and the state write at the bottom"
+deployArtifact env artifact = do
+  mTarget <- resolveTarget env artifact
+  case mTarget of
+    Nothing -> pure DeployNoTarget
+    Just target -> do
+      retryState <- readRetryState (retryFile env)  -- new
+      let attemptsLeft = ...                         -- new
+      if attemptsLeft <= 0                           -- NEW level 2
+        then pure DeployRetriesExhausted
+        else do
+          uploaded <- uploadBundle target artifact
+          if not uploaded                            -- level 3!
+            then do
+              writeRetryState ...                    -- new
+              pure DeployUploadFailed
+            else do                                  -- level 3
+              mHealth <- checkHealth target
+              case mHealth of                        -- level 4!!
+                Nothing -> pure DeployHealthTimeout
+                Just ok -> do
+                  clearRetryState ...               -- new
+                  recordDeployment ...
+                  pure (DeploySuccess ok)
+-- The function grew from bad to worse because the refactoring step was skipped.
+```
+
 ## Module Organization
 
 ```haskell
@@ -551,6 +668,80 @@ runJob config = do
   case gate of
     Left result -> pure result
     Right readyItems -> acquireAndProcess config readyItems
+```
+
+## Error Handling: Monadic Early Return with Gate Types
+
+```haskell
+-- BAD: deeply nested if/else inside do — procedural, hard to change
+processSession config signal = do
+  let sid = asSessionId signal
+  mProject <- identifyProject ...
+  case mProject of
+    Nothing -> pure Nothing
+    Just project -> do
+      cursorMap <- readCursorMap cursorFile
+      transcriptExists <- doesFileExist path
+      if not transcriptExists
+        then do
+          logWarn "not found"
+          pure (Just project)
+        else do
+          let (filtered, newCount) = filterFrom skipLines raw
+          if T.null filtered
+            then do
+              if skipLines > 0
+                then logInfo "no new content"
+                else logWarn "empty transcript"
+              writeCursorMap ...
+              pure (Just project)
+            else do
+              mOut <- runLLM ...
+              -- even more nesting inside withLLMResult ...
+              pure (Just project)
+
+-- GOOD: result type + pure gates + flat do body
+data SessionResult
+  = SessionSkipped
+  | SessionNoTranscript
+  | SessionUpToDate
+  | SessionEmptyTranscript
+  | SessionExtractionFailed
+  | SessionExtracted !Int
+
+processSession config signal = do
+  let sid = asSessionId signal
+  mProject <- identifyProject ...
+  case mProject of
+    Nothing -> pure (Nothing, SessionSkipped)
+    Just project -> do
+      result <- runSession config signal project
+      pure (Just project, result)
+
+runSession config signal project = do
+  cursorMap <- readCursorMap cursorFile
+  let
+    cursor = fromMaybe (ExtractionCursor 0) (Map.lookup sid cursorMap)
+
+  transcriptExists <- doesFileExist (asTranscriptPath signal)
+  if not transcriptExists
+    then pure SessionNoTranscript
+    else do
+      raw <- readFileBinary (asTranscriptPath signal)
+      let
+        (filtered, newCount) = filterFrom (cursorLineCount cursor) raw
+        gate = checkFiltered (cursorLineCount cursor) filtered
+      case gate of
+        Left result -> do
+          advanceCursor cursorFile cursorMap sid newCount
+          pure result
+        Right content -> do
+          extract config signal project cursorMap content newCount
+ where
+  checkFiltered skipLines filtered
+    | T.null filtered, skipLines > 0 = Left SessionUpToDate
+    | T.null filtered                = Left SessionEmptyTranscript
+    | otherwise                      = Right filtered
 ```
 
 ## Error Handling: Pure Gate Pipelines

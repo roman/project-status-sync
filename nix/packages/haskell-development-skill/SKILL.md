@@ -14,6 +14,33 @@ This skill applies to Haskell projects using the RIO prelude. Check for
 All examples in `references/examples.md`. Each section below states the rule;
 consult examples for BAD/GOOD code pairs.
 
+## Before Modifying an Existing Function (Mandatory)
+
+When your task requires adding logic to an existing function, **do not start by
+writing the new code inline.** First, read the function and assess its structure:
+
+1. **Count nesting levels.** Scan the function body for `if`/`case`/`\case`
+   branches inside `do` blocks. Each nested branch inside another branch is one
+   level. Record the count.
+
+2. **If nesting is already at 2 levels**, the function is at its structural limit.
+   Your first commit must be a **refactoring-only** commit that flattens the function
+   using gate pipelines or extracted helpers (see "Pure gate pipelines" and "Monadic
+   early return" in examples). Do not add any new functionality in this commit.
+
+3. **Then, in a separate commit**, add your new logic to the now-flat function. The
+   new logic should slot into the existing pipeline without introducing nesting.
+
+4. **If nesting is below 2 levels**, you may add logic directly — but if your change
+   *would* push nesting to 3+, apply step 2 first.
+
+This is the single most important rule in this skill. The natural path when modifying
+a function is to nest your new logic inside the existing control flow. That path
+produces code that is hard to read, hard to test, and hard to change next time. The
+effort to refactor first is always less than the effort to untangle later.
+
+See "Refactor-first workflow" in examples for a concrete walkthrough.
+
 ## Module Organization
 
 - Organize modules **vertically by domain** (e.g., `Syntax`, `Parsing`, `Infer`,
@@ -163,11 +190,13 @@ provides before reaching for upstream packages. Common traps:
   don't wrap fields in `Maybe` to represent "might not exist"
 - When a type intentionally omits variants from the domain (e.g., only modeling `text`
   blocks from a richer format), document what is omitted and why in a comment
-- **Result types over nested branches**: when a function has multiple early-exit
-  conditions (empty input, timeout, lock contention, etc.), define a sum type
-  enumerating all outcomes. This makes the result space explicit, documented, and
-  exhaustively checkable by the compiler — nested `if`/`case` trees hide the
-  outcome set in control flow
+- **Never nest more than 2 levels of `if`/`case` inside `do` notation.** If you
+  are about to write a third nesting level, STOP — you are writing procedural code.
+  Define a result sum type enumerating all outcomes, extract pure gate functions
+  returning `Either ResultType a`, and compose them with `>>=`. The `do` body should
+  have a single `case gate of Left r -> handle r; Right val -> doWork val`. This is
+  not a suggestion — nested `if`/`case` trees hide the outcome set in control flow,
+  are hard to read, and resist change. See "Monadic early return" in examples
 
 ## Strings & Logging
 
@@ -265,11 +294,14 @@ format for all documentation.
   and monadic/applicative combinators instead of nested `case`/`if` trees.
   Flatten decision logic into a pipeline of `Maybe`/`Either` values rather
   than branching at each step
-- **Pure gate pipelines**: when a function must pass through several
-  preconditions before doing IO, extract each check as a pure function
-  returning `Either ResultType a` and compose them with `>>=`. The main
-  body becomes a single `case gate of Left r -> …; Right val -> doWork val`.
-  This keeps validation logic pure, testable, and flat
+- **Pure gate pipelines** (mandatory for functions with 2+ preconditions):
+  extract each check as a pure function returning `Either ResultType a` and
+  compose them with `>>=`. The `do` body becomes a single
+  `case gate of Left r -> …; Right val -> doWork val`. This keeps validation
+  logic pure, testable, and flat. **If you find yourself writing
+  `if cond then ... else do` inside a `do` block that is already inside
+  another `if`/`case` branch, you have violated this rule.** Refactor before
+  continuing
 - Prefer `let ... in` over `where` for bindings; `where` acceptable for
   local function definitions and small bindings
 - `let` and `in` keywords live on their own lines
