@@ -57,7 +57,17 @@ When implementing a WORKPLAN item:
    - Changing CLI flag semantics (required → optional, new defaults)
 
 4. **Implement to spec** — address each requirement, not just the spirit of the task
-5. **If you disagree with the spec** — write a proposal or ask the user. Never silently deviate.
+5. **Spec deviation is a STOP gate.** If you believe the spec is wrong, suboptimal, or
+   should be simplified:
+   - **STOP** — do not implement your alternative
+   - Write a proposal to `notes/proposals/` explaining why the spec should change
+   - Update WORKPLAN.md to note the item is BLOCKED pending proposal review
+   - **Terminate the session.** The human will review and approve/reject before work continues.
+   - This applies even when a prior handoff doc "defers" a decision — the WORKPLAN and
+     approved proposals are authoritative. Handoff docs record what happened, they do not
+     grant permission to change what should happen.
+   - "Simpler" is not an exemption. A simpler approach that contradicts the spec is still
+     a deviation and requires a proposal.
 
 Handoff docs for implementation commits must include a **Spec Compliance** section:
 
