@@ -1,7 +1,11 @@
 # Event Deduplication Strategy
 
 **Date**: 2026-03-19
-**Status**: PROPOSED
+**Status**: REJECTED
+**Superseded by**: `2026-03-19-incremental-extraction.md`
+**Rejection reason**: All three options (hash dedup, session replace, read-time dedup) either
+break append-only semantics or have key-design problems. A watermark-based incremental
+approach avoids the dedup problem entirely by not re-extracting already-processed messages.
 **Affects**: `src/CCS/Event.hs`, `src/CCS/Process.hs`, `EVENTS.jsonl` semantics
 
 ## Problem Statement

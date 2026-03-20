@@ -984,12 +984,34 @@ only removes the fence delimiters but keeps surrounding text.
 
 - Files: `prompts/status-synthesis.md`, `src/CCS/Process.hs`
 
-### 7.3: Event deduplication — review proposal
+### 7.3: Incremental extraction (event dedup prevention)
 
-- Proposal: `notes/proposals/2026-03-19-event-deduplication.md`
-- Review with human, decide on approach (A: hash dedup, B: session replace, C: read-time)
-- Proposal recommends Option B (session-keyed replacement)
-- Implementation blocked until proposal is APPROVED
+- Original dedup proposal REJECTED: `notes/proposals/2026-03-19-event-deduplication.md`
+- Approved proposal: `notes/proposals/2026-03-19-incremental-extraction.md` (APPROVED)
+- Approach: avoid creating duplicates by tracking an extraction cursor per session,
+  slicing the transcript at the cursor boundary, and only extracting from new messages
+
+**7.3a: `ExtractionCursor` newtype + cursor file I/O** (`src/CCS/Process.hs`)
+- `newtype ExtractionCursor = ExtractionCursor { cursorLineCount :: Int }`
+- Read/write `{projectDir}/.extraction-cursors.json` as `Map SessionId ExtractionCursor`
+- Smart constructor validates non-negative values at parse boundary
+
+**7.3b: Transcript slicing** (`src/CCS/Filter.hs`)
+- `filterTranscriptFrom :: ExtractionCursor -> LBS.ByteString -> (Text, ExtractionCursor)`
+- Drops already-processed lines, filters and formats the rest
+- Returns updated cursor for storage
+- `filterTranscriptFile` becomes a convenience wrapper
+
+**7.3c: Wire into `processSession`** (`src/CCS/Process.hs`)
+- Before extraction: read `.extraction-cursors.json`, look up session ID
+- Pass `ExtractionCursor` to `filterTranscriptFrom`
+- After extraction: update cursor file with returned `ExtractionCursor`
+- On cursor miss: use `ExtractionCursor 0` (full transcript — current behavior)
+
+**7.3d: Tests**
+- Cursor round-trip (write + read)
+- Transcript slicing with cursor=0 (full), cursor=N (slice)
+- `processSession` with re-processed session produces no duplicates
 
 ### 7.4: Normalize progress.log entries
 
@@ -1002,13 +1024,21 @@ only removes the fence delimiters but keeps surrounding text.
 
 - [ ] Output files contain no npm/pnpm lifecycle noise
 - [ ] STATUS.md contains only the markdown document, no LLM commentary
-- [ ] Event dedup proposal reviewed and decision made
+- [x] Event dedup proposal reviewed — incremental extraction APPROVED
+- [ ] Extraction cursor prevents duplicate events on session re-processing
 - [ ] progress.log entries are consistently formatted (no code fences)
 - [ ] Re-run against cell-controller sessions produces clean output
+
+**Review gates** (revisit after milestone):
+- [ ] After evidence of session JSONL rewriting: upgrade to UUID-based cursoring (Option B) — See `notes/proposals/2026-03-19-incremental-extraction.md` § Evolution Path
 
 ### Progress
 
 - [ ] 7.1: Strip CLI noise from LLM output
 - [ ] 7.2: Prevent LLM commentary in STATUS.md
-- [ ] 7.3: Event deduplication — review proposal
+- [x] 7.3: Event dedup proposal reviewed — incremental extraction APPROVED
+- [ ] 7.3a: `ExtractionCursor` newtype + cursor file I/O
+- [ ] 7.3b: Transcript slicing in `CCS.Filter`
+- [ ] 7.3c: Wire into `processSession`
+- [ ] 7.3d: Tests
 - [ ] 7.4: Normalize progress.log entries
