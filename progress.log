@@ -84,3 +84,4 @@
 2026-03-15 16:00 [7a12ee6e] — Phase 6.5: service runtime hardening — TimeoutStartSec 30min, --max-signals 20 default, Nix module wiring (128 tests pass)
 2026-03-16 12:00 [95bc145e] — Fix: guard file IO operations against missing files (Filter, Signal, Process, Main)
 2026-03-19 11:19 [ab279e9d] — Phase 3.4/7: quality validation of cell-controller outputs, 4 issues found, Phase 7 created
+2026-03-20 05:32 [897f5bc2] — Phase 7.3a: ExtractionCursor newtype and I/O, 8 tests added

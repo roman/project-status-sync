@@ -1,5 +1,6 @@
 module CCS.Process (
   EventLogEntry (..),
+  ExtractionCursor (..),
   ProcessConfig (..),
   SynthesisContext (..),
   SynthesisHistory (..),
@@ -15,10 +16,12 @@ module CCS.Process (
   parseExtractionOutput,
   parseTopicSlug,
   processSession,
+  readExtractionCursorFile,
   resolveContext,
   runLLMPrompt,
   stripCodeFences,
   stripTopicLine,
+  writeExtractionCursor,
 ) where
 
 import RIO
@@ -387,6 +390,13 @@ deriveSynthesisPaths ProcessConfig{..} project =
 newtype Watermark = Watermark {watermarkPosition :: Int}
   deriving stock (Eq, Show)
 
+-- | Extraction cursor: line count of JSONL lines processed for a session.
+-- Prevents re-extracting events from already-processed transcript lines.
+-- Constructed only via 'readExtractionCursorFile' to enforce validation
+-- at the parse boundary.
+newtype ExtractionCursor = ExtractionCursor {cursorLineCount :: Int}
+  deriving stock (Eq, Show)
+
 -- | Why synthesis was skipped for a project.
 data SynthesisSkip
   = NoEvents
@@ -592,6 +602,27 @@ readWatermarkFile path totalEntries = do
 -- | Persist the cursor position after successful synthesis.
 writeCursor :: MonadIO m => FilePath -> Int -> m ()
 writeCursor path count =
+  writeFileBinary path (T.encodeUtf8 (T.pack (show count) <> "\n"))
+
+-- | Read extraction cursor from disk. Returns 'Nothing' when the file is
+-- absent, unparseable, or contains a negative value. On miss, falls back
+-- to 'ExtractionCursor 0' (full transcript processing) in the caller.
+readExtractionCursorFile :: MonadIO m => FilePath -> m (Maybe ExtractionCursor)
+readExtractionCursorFile path = do
+  exists <- doesFileExist path
+  if not exists
+    then pure Nothing
+    else do
+      bs <- readFileBinary path
+      let
+        txt = T.strip $ T.decodeUtf8With T.lenientDecode bs
+      case readMaybe (T.unpack txt) of
+        Just n | n >= 0 -> pure (Just (ExtractionCursor n))
+        _ -> pure Nothing
+
+-- | Persist the extraction cursor position after successful extraction.
+writeExtractionCursor :: MonadIO m => FilePath -> ExtractionCursor -> m ()
+writeExtractionCursor path (ExtractionCursor count) =
   writeFileBinary path (T.encodeUtf8 (T.pack (show count) <> "\n"))
 
 withLLMResult :: (Utf8Builder -> RIO env ()) -> Maybe Text -> Utf8Builder -> (Text -> RIO env ()) -> RIO env ()

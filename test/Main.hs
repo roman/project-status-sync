@@ -58,6 +58,7 @@ import CCS.Filter (
  )
 import CCS.Process (
   EventLogEntry (..),
+  ExtractionCursor (..),
   SynthesisContext (..),
   SynthesisHistory (..),
   SynthesisSkip (..),
@@ -70,9 +71,11 @@ import CCS.Process (
   parseEventsJsonl,
   parseExtractionOutput,
   parseTopicSlug,
+  readExtractionCursorFile,
   resolveContext,
   stripCodeFences,
   stripTopicLine,
+  writeExtractionCursor,
  )
 import CCS.Project (
   OrgMappings (..),
@@ -1040,6 +1043,67 @@ processTests =
                     }
               in
                 T.isInfixOf "generate from full history" (buildSynthesisInput "p" ctx) @?= True
+        ]
+    , testGroup
+        "ExtractionCursor"
+        [ testCase "creates cursor with non-negative line count"
+            $ cursorLineCount (ExtractionCursor 5)
+            @?= 5
+        , testCase "cursor equality"
+            $ ExtractionCursor 10
+            @?= ExtractionCursor 10
+        , testCase "cursor round-trip: write and read"
+            $ do
+              tmpDir <- getTemporaryDirectory
+              let
+                cursorFile = tmpDir </> "test-extraction-cursor"
+              writeExtractionCursor cursorFile (ExtractionCursor 42)
+              mCursor <- readExtractionCursorFile cursorFile
+              removeFile cursorFile
+              mCursor @?= Just (ExtractionCursor 42)
+        , testCase "read returns Nothing for missing file"
+            $ do
+              tmpDir <- getTemporaryDirectory
+              let
+                cursorFile = tmpDir </> "nonexistent-cursor"
+              mCursor <- readExtractionCursorFile cursorFile
+              mCursor @?= Nothing
+        , testCase "read returns Nothing for invalid (non-numeric) content"
+            $ do
+              tmpDir <- getTemporaryDirectory
+              let
+                cursorFile = tmpDir </> "invalid-cursor"
+              writeFileBinary cursorFile "not a number\n"
+              mCursor <- readExtractionCursorFile cursorFile
+              removeFile cursorFile
+              mCursor @?= Nothing
+        , testCase "read returns Nothing for negative value"
+            $ do
+              tmpDir <- getTemporaryDirectory
+              let
+                cursorFile = tmpDir </> "negative-cursor"
+              writeFileBinary cursorFile "-5\n"
+              mCursor <- readExtractionCursorFile cursorFile
+              removeFile cursorFile
+              mCursor @?= Nothing
+        , testCase "read handles whitespace around value"
+            $ do
+              tmpDir <- getTemporaryDirectory
+              let
+                cursorFile = tmpDir </> "whitespace-cursor"
+              writeFileBinary cursorFile "  123  \n"
+              mCursor <- readExtractionCursorFile cursorFile
+              removeFile cursorFile
+              mCursor @?= Just (ExtractionCursor 123)
+        , testCase "write includes newline"
+            $ do
+              tmpDir <- getTemporaryDirectory
+              let
+                cursorFile = tmpDir </> "newline-cursor"
+              writeExtractionCursor cursorFile (ExtractionCursor 7)
+              content <- readFileBinary cursorFile
+              removeFile cursorFile
+              T.decodeUtf8With T.lenientDecode content @?= "7\n"
         ]
     ]
 

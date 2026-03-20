@@ -1037,7 +1037,7 @@ only removes the fence delimiters but keeps surrounding text.
 - [ ] 7.1: Strip CLI noise from LLM output
 - [ ] 7.2: Prevent LLM commentary in STATUS.md
 - [x] 7.3: Event dedup proposal reviewed — incremental extraction APPROVED
-- [ ] 7.3a: `ExtractionCursor` newtype + cursor file I/O
+- [x] 7.3a: `ExtractionCursor` newtype + cursor file I/O
 - [ ] 7.3b: Transcript slicing in `CCS.Filter`
 - [ ] 7.3c: Wire into `processSession`
 - [ ] 7.3d: Tests
