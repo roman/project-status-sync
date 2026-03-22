@@ -27,7 +27,7 @@ module CCS.Process (
 
 import RIO
 import RIO.Char (isDigit)
-import RIO.List (sort)
+import RIO.List (findIndex, sort)
 import RIO.Map qualified as Map
 import RIO.Text qualified as T
 
@@ -703,17 +703,27 @@ stripTopicLine =
  where
   isTopicLine line = "TOPIC:" `T.isPrefixOf` T.strip line
 
+-- | Extract content between the first opening code fence and the last
+-- closing code fence, discarding any text outside.  If no fence pair is
+-- found, returns the input unchanged.
 stripCodeFences :: Text -> Text
 stripCodeFences input =
   let
     lns = T.lines input
+    isFenceOpen l = "```" `T.isPrefixOf` T.strip l
+    isFenceClose l = T.strip l == "```"
+    openIdx = findIndex isFenceOpen lns
+    closeIdx = findLastIndex isFenceClose lns
   in
-    case lns of
-      (opening : rest)
-        | "```" `T.isPrefixOf` T.strip opening ->
-            case reverse rest of
-              (closing : middle)
-                | T.strip closing == "```" ->
-                    T.unlines (reverse middle)
-              _ -> input
+    case (openIdx, closeIdx) of
+      (Just oi, Just ci)
+        | ci > oi ->
+            T.unlines (take (ci - oi - 1) (drop (oi + 1) lns))
       _ -> input
+ where
+  findLastIndex p xs =
+    let
+      len = length xs
+      revIdx = findIndex p (reverse xs)
+    in
+      fmap (\i -> len - 1 - i) revIdx

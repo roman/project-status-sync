@@ -156,6 +156,11 @@ For detailed session context, see:
 - What quiet period is appropriate between session end and aggregation?
 ```
 
+## Output Rules
+
+Output ONLY the markdown document. Do not include preamble, commentary, or
+explanations outside the document. Do not wrap the output in code fences.
+
 ## Events
 
 The events follow. Generate STATUS.md now.

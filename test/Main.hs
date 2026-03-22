@@ -917,6 +917,15 @@ processTests =
         , testCase "handles no trailing newline on closing fence"
             $ stripCodeFences "```markdown\n# Status\n```"
             @?= "# Status\n"
+        , testCase "discards preamble before opening fence"
+            $ stripCodeFences "Here's the status:\n```markdown\n# Status\nAll good\n```\n"
+            @?= "# Status\nAll good\n"
+        , testCase "discards commentary after closing fence"
+            $ stripCodeFences "```markdown\n# Status\n```\nHope this helps!\n"
+            @?= "# Status\n"
+        , testCase "discards both preamble and trailing commentary"
+            $ stripCodeFences "Sure, here it is:\n\n```markdown\n# Title\nBody\n```\n\nLet me know if you need changes.\n"
+            @?= "# Title\nBody\n"
         ]
     , testGroup
         "formatEventsCompact"
