@@ -49,6 +49,12 @@ Bad entries (avoid):
 2026-03-03 10:15 [def67890] — worked on multiple things including some bugs  # no specifics
 ```
 
+## Output Rules
+
+- Output ONLY the single progress log line
+- Do not wrap output in code fences or markdown formatting
+- Do not include preamble, commentary, or explanations
+
 ## Session Events
 
 The events follow. Generate the progress entry now.

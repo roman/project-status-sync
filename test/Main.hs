@@ -69,6 +69,7 @@ import CCS.Process (
   decideSynthesis,
   formatEventsCompact,
   formatEventsInput,
+  normalizeProgressEntry,
   parseEventsJsonl,
   parseExtractionOutput,
   parseTopicSlug,
@@ -926,6 +927,24 @@ processTests =
         , testCase "discards both preamble and trailing commentary"
             $ stripCodeFences "Sure, here it is:\n\n```markdown\n# Title\nBody\n```\n\nLet me know if you need changes.\n"
             @?= "# Title\nBody\n"
+        ]
+    , testGroup
+        "normalizeProgressEntry"
+        [ testCase "single line preserved"
+            $ normalizeProgressEntry "2026-03-22 14:00 [abc12345] — Phase 7.4: normalize progress entries\n"
+            @?= "2026-03-22 14:00 [abc12345] — Phase 7.4: normalize progress entries"
+        , testCase "takes first non-empty line from multi-line output"
+            $ normalizeProgressEntry "2026-03-22 14:00 [abc12345] — Phase 7.4: normalize\nExtra commentary line\n"
+            @?= "2026-03-22 14:00 [abc12345] — Phase 7.4: normalize"
+        , testCase "skips leading blank lines"
+            $ normalizeProgressEntry "\n\n2026-03-22 14:00 [abc12345] — did work\n"
+            @?= "2026-03-22 14:00 [abc12345] — did work"
+        , testCase "empty input returns empty"
+            $ normalizeProgressEntry ""
+            @?= ""
+        , testCase "whitespace-only input returns empty"
+            $ normalizeProgressEntry "   \n  \n  "
+            @?= ""
         ]
     , testGroup
         "formatEventsCompact"

@@ -90,3 +90,4 @@
 2026-03-20 16:00 [aee280ce] — Phase 7.3c: wire extraction cursor into processSession — map-based cursor I/O, cursor save on empty-filtered path (151 tests pass)
 2026-03-22 12:00 [142f3142] — Phase 7.3d: extraction cursor integration tests — 4 unit + 1 property proving no-duplicate invariant (156 tests pass)
 2026-03-22 14:00 [5965bf8a] — Phase 7.2: prevent LLM commentary in STATUS.md — prompt output rules + stripCodeFences extracts between fences (159 tests pass)
+2026-03-22 16:00 [1506b709] — Phase 7.4: normalize progress.log entries — prompt output rules + first-line extraction (164 tests pass)

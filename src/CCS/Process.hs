@@ -9,6 +9,7 @@ module CCS.Process (
   Watermark (..),
   buildSynthesisInput,
   decideSynthesis,
+  normalizeProgressEntry,
   formatEventsCompact,
   formatEventsInput,
   generateStatusForProject,
@@ -27,7 +28,7 @@ module CCS.Process (
 
 import RIO
 import RIO.Char (isDigit)
-import RIO.List (findIndex, sort)
+import RIO.List (find, findIndex, sort)
 import RIO.Map qualified as Map
 import RIO.Text qualified as T
 
@@ -381,7 +382,7 @@ generateProgressEntry config signal events now projectDir = do
     mOut <- runLLMPrompt config (pcProgressPrompt config) input
     withLLMResult logWarn mOut ("Progress entry generation failed for session " <> display sid) $ \out -> do
       let
-        entry = T.strip out
+        entry = normalizeProgressEntry out
         progressFile = projectDir </> "progress.log"
       unless (T.null entry) $ do
         liftIO
@@ -696,6 +697,13 @@ stripCLINoise input =
       case T.uncons stripped of
         Nothing -> False
         Just (c, _) -> c == '[' || c == '#' || c == '{' || isDigit c || "TOPIC:" `T.isPrefixOf` stripped
+
+-- | Extract the first non-empty line from progress entry output.
+-- Progress entries must be single-line for @tail -f@ monitoring;
+-- this discards any extra lines the LLM may emit.
+normalizeProgressEntry :: Text -> Text
+normalizeProgressEntry =
+  fromMaybe "" . find (not . T.null) . map T.strip . T.lines
 
 stripTopicLine :: Text -> Text
 stripTopicLine =
