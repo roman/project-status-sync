@@ -1208,6 +1208,101 @@ processTests =
                 decoded = decode (fromStrictBytes content) :: Maybe (Map Text Int)
               decoded @?= Just (Map.fromList [("s1", 7)])
         ]
+    , testGroup
+        "CursorIntegration"
+        [ testCase "re-filter with saved cursor returns empty" $ do
+            let
+              transcript =
+                jsonl
+                  [ [aesonQQ| { "type": "user", "message": { "content": "hello" } } |]
+                  , [aesonQQ| { "type": "assistant", "message": { "content": "world" } } |]
+                  , [aesonQQ| { "type": "user", "message": { "content": "new msg" } } |]
+                  ]
+              (text1, lineCount1) = filterTranscriptFrom 0 transcript
+            assertBool "first pass extracts content" (not (T.null text1))
+            let
+              (text2, lineCount2) = filterTranscriptFrom lineCount1 transcript
+            text2 @?= ""
+            lineCount2 @?= lineCount1
+        , testCase "cursor persists across write/read and prevents re-extraction" $ do
+            tmpDir <- getTemporaryDirectory
+            suffix <- randomRIO (100000 :: Int, 999999)
+            let
+              cursorFile = tmpDir </> ("cursor-integration-" <> show suffix <> ".json")
+              sid = SessionId "session-xyz"
+              transcript =
+                jsonl
+                  [ [aesonQQ| { "type": "user", "message": { "content": "first" } } |]
+                  , [aesonQQ| { "type": "assistant", "message": { "content": "reply" } } |]
+                  ]
+
+            cursorMap0 <- readExtractionCursors cursorFile
+            let
+              cursorPos0 = maybe 0 cursorLineCount (Map.lookup sid cursorMap0)
+              (text1, newCount1) = filterTranscriptFrom cursorPos0 transcript
+            assertBool "initial extraction has content" (not (T.null text1))
+
+            let
+              updated1 = Map.insert sid (ExtractionCursor newCount1) cursorMap0
+            writeExtractionCursors cursorFile updated1
+
+            cursorMap1 <- readExtractionCursors cursorFile
+            let
+              cursorPos1 = maybe 0 cursorLineCount (Map.lookup sid cursorMap1)
+              (text2, _newCount2) = filterTranscriptFrom cursorPos1 transcript
+            text2 @?= ""
+
+            removeFile cursorFile
+        , testCase "multi-session cursors are independent" $ do
+            tmpDir <- getTemporaryDirectory
+            suffix <- randomRIO (100000 :: Int, 999999)
+            let
+              cursorFile = tmpDir </> ("cursor-multi-" <> show suffix <> ".json")
+              sidA = SessionId "session-a"
+              sidB = SessionId "session-b"
+              transcriptA =
+                jsonl
+                  [ [aesonQQ| { "type": "user", "message": { "content": "msg-a" } } |]
+                  ]
+              transcriptB =
+                jsonl
+                  [ [aesonQQ| { "type": "user", "message": { "content": "msg-b1" } } |]
+                  , [aesonQQ| { "type": "assistant", "message": { "content": "msg-b2" } } |]
+                  ]
+
+            let
+              (_textA, countA) = filterTranscriptFrom 0 transcriptA
+              cursors1 = Map.singleton sidA (ExtractionCursor countA)
+            writeExtractionCursors cursorFile cursors1
+
+            cursorMap <- readExtractionCursors cursorFile
+            let
+              cursorPosA = maybe 0 cursorLineCount (Map.lookup sidA cursorMap)
+              cursorPosB = maybe 0 cursorLineCount (Map.lookup sidB cursorMap)
+              (refilterA, _) = filterTranscriptFrom cursorPosA transcriptA
+              (filterB, _) = filterTranscriptFrom cursorPosB transcriptB
+            refilterA @?= ""
+            assertBool "session B still has content" (not (T.null filterB))
+
+            removeFile cursorFile
+        , testCase "appended transcript yields only new content on re-filter" $ do
+            let
+              transcript1 =
+                jsonl
+                  [ [aesonQQ| { "type": "user", "message": { "content": "old" } } |]
+                  ]
+              (_text1, cursor1) = filterTranscriptFrom 0 transcript1
+
+              transcript2 =
+                jsonl
+                  [ [aesonQQ| { "type": "user", "message": { "content": "old" } } |]
+                  , [aesonQQ| { "type": "user", "message": { "content": "new" } } |]
+                  ]
+              (text2, cursor2) = filterTranscriptFrom cursor1 transcript2
+            assertBool "new content extracted" (T.isInfixOf "new" text2)
+            assertBool "old content not extracted" (not (T.isInfixOf "old" text2))
+            cursor2 @?= 2
+        ]
     ]
 
 -- ---------------------------------------------------------------------------
@@ -1459,6 +1554,13 @@ filterProps =
         result = filterTranscript (LBS.pack bs)
       in
         T.length result `seq` True
+  , testProperty "second pass with saved cursor returns empty (no duplicates)" $ \(bs :: [Word8]) ->
+      let
+        input = LBS.pack bs
+        (_text1, cursor) = filterTranscriptFrom 0 input
+        (text2, _cursor2) = filterTranscriptFrom cursor input
+      in
+        text2 === ""
   ]
 
 deriveOutputSubpathProps :: [TestTree]

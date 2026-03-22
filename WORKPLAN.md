@@ -1025,7 +1025,7 @@ only removes the fence delimiters but keeps surrounding text.
 - [ ] Output files contain no npm/pnpm lifecycle noise
 - [ ] STATUS.md contains only the markdown document, no LLM commentary
 - [x] Event dedup proposal reviewed — incremental extraction APPROVED
-- [ ] Extraction cursor prevents duplicate events on session re-processing
+- [x] Extraction cursor prevents duplicate events on session re-processing
 - [ ] progress.log entries are consistently formatted (no code fences)
 - [ ] Re-run against cell-controller sessions produces clean output
 
@@ -1040,9 +1040,10 @@ only removes the fence delimiters but keeps surrounding text.
 - [x] 7.3a: `ExtractionCursor` newtype + cursor file I/O
 - [x] 7.3b: Transcript slicing in `CCS.Filter`
 - [x] 7.3c: Wire into `processSession`
-- [ ] 7.3d: Tests
+- [x] 7.3d: Tests (4 integration + 1 property, 156 tests pass)
 - [ ] 7.4: Normalize progress.log entries
 
 See:
 - `notes/handoffs/2026-03-20-phase-7.1-strip-cli-noise.md`
 - `notes/handoffs/2026-03-20-phase-7.3c-cursor-wiring.md`
+- `notes/handoffs/2026-03-22-phase-7.3d-cursor-tests.md`
